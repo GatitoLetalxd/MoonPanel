@@ -1,0 +1,24 @@
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y \
+    openssh-server \
+    nodejs \
+    npm \
+    curl \
+    git \
+    nano \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir /var/run/sshd
+
+# Permitir login por password y acceso root
+RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+RUN sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+
+EXPOSE 22 3000
+
+CMD ["/usr/sbin/sshd", "-D"]

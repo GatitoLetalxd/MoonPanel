@@ -1,0 +1,57 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      Role     @default(CLIENT)
+  createdAt DateTime @default(now())
+  instance  Instance?
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+model Instance {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subdomain       String   @unique     // ej: "daniel" → daniel.moondev.online
+  webPort         Int      @unique     // puerto web (3010, 3030, etc.)
+  sshPort         Int      @unique     // puerto SSH (2210, 2220, etc.)
+  sshPassword     String               // contraseña temporal generada al crear
+  status          Status   @default(STOPPED)
+  ramLimit        Int      @default(512)   // MB
+  cpuLimit        Float    @default(0.5)   // cores
+  diskLimit       Int      @default(2048)  // MB
+  containerName   String   @unique
+  sshKeys         SSHKey[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+enum Status {
+  RUNNING
+  STOPPED
+  CREATING
+  ERROR
+}
+
+model SSHKey {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  label      String                        // ej: "Laptop casa"
+  publicKey  String                        // contenido del .pub
+  createdAt  DateTime @default(now())
+}
