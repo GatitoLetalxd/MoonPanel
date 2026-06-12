@@ -106,7 +106,7 @@ async function execInContainer(containerName, command) {
     })
     const stream = await execObj.start({ hijack: true, stdin: false })
     
-    return new Promise((resolve, reject) => {
+    const output = await new Promise((resolve, reject) => {
       let stdout = ''
       let stderr = ''
       docker.modem.demuxStream(stream, {
@@ -119,6 +119,13 @@ async function execInContainer(containerName, command) {
       })
       stream.on('error', reject)
     })
+
+    const inspectData = await execObj.inspect()
+    if (inspectData.ExitCode !== 0) {
+      throw new Error(`Command failed with exit code ${inspectData.ExitCode}. Output:\n${output}`)
+    }
+
+    return output
   } catch (error) {
     console.error(`[DOCKER EXEC ERROR] en contenedor ${containerName}:`, error.message)
     throw error

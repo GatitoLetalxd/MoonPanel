@@ -21,7 +21,7 @@ async function getInstance(req, res) {
       return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
     }
 
-    if (instance.status === 'PENDING') {
+    if (instance.status === 'PENDING' || instance.status === 'CREATING') {
       return res.status(200).json({ instance })
     }
 
@@ -276,7 +276,7 @@ async function getEnvVars(req, res) {
     const instance = await getClientInstance(req.user.id)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
-    const { decrypt } = require('./cryptoService')
+    const { decrypt } = require('../services/cryptoService')
     const envVars = await prisma.envVar.findMany({
       where: { instanceId: instance.id }
     })
@@ -305,7 +305,7 @@ async function addOrUpdateEnvVar(req, res) {
     const instance = await getClientInstance(req.user.id)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
-    const { encrypt, decrypt } = require('./cryptoService')
+    const { encrypt, decrypt } = require('../services/cryptoService')
     const encryptedValue = encrypt(value || '')
 
     const existing = await prisma.envVar.findFirst({
@@ -479,6 +479,79 @@ async function getDeployLogs(req, res) {
   }
 }
 
+// DELETE /api/client/instance
+async function deleteInstance(req, res) {
+  try {
+    const instance = await getClientInstance(req.user.id)
+    if (!instance) {
+      return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
+    }
+
+    if (instance.status === 'PENDING') {
+      return res.status(400).json({ error: 'La instancia no ha sido lanzada aún.' })
+    }
+
+    console.log(`[CLIENT DELETE] Eliminando recursos del contenedor ${instance.containerName}...`)
+    
+    // 1. Eliminar contenedor Docker y directorio de host
+    await dockerService.deleteContainer(instance.containerName).catch(err => {
+      console.error(`Error al eliminar contenedor:`, err.message)
+    })
+
+    // 2. Eliminar configuración vhost Nginx
+    const nginxService = require('../services/nginxService')
+    await nginxService.removeVhost(instance.subdomain).catch(err => {
+      console.error(`Error al eliminar vhost:`, err.message)
+    })
+
+    // 3. Modificar base de datos a estado PENDING
+    const updated = await prisma.instance.update({
+      where: { id: instance.id },
+      data: {
+        status: 'PENDING'
+      }
+    })
+
+    return res.status(200).json({
+      message: 'Instancia eliminada con éxito y restablecida a PENDING.',
+      instance: updated
+    })
+  } catch (error) {
+    console.error('[CLIENT INSTANCE DELETE] Error:', error)
+    return res.status(500).json({ error: 'Error al eliminar la instancia.' })
+  }
+}
+
+// PATCH /api/client/instance/mode
+async function updateInstanceMode(req, res) {
+  try {
+    const { mode } = req.body
+    if (!mode || (mode !== 'SSH' && mode !== 'AUTO_DEPLOY')) {
+      return res.status(400).json({ error: 'Modo de despliegue inválido. Debe ser SSH o AUTO_DEPLOY.' })
+    }
+
+    const instance = await getClientInstance(req.user.id)
+    if (!instance) {
+      return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
+    }
+
+    const updated = await prisma.instance.update({
+      where: { id: instance.id },
+      data: { mode }
+    })
+
+    console.log(`[CLIENT MODE UPDATE] Modo de la instancia ${instance.containerName} actualizado a ${mode}.`)
+
+    return res.status(200).json({
+      message: `Modo de la instancia cambiado a ${mode} con éxito.`,
+      instance: updated
+    })
+  } catch (error) {
+    console.error('[CLIENT INSTANCE MODE UPDATE] Error:', error)
+    return res.status(500).json({ error: 'Error al actualizar el modo de la instancia.' })
+  }
+}
+
 module.exports = {
   getInstance,
   launchInstance,
@@ -494,5 +567,7 @@ module.exports = {
   deleteEnvVar,
   getDeployments,
   triggerDeploy,
-  getDeployLogs
+  getDeployLogs,
+  deleteInstance,
+  updateInstanceMode
 }

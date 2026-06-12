@@ -32,6 +32,7 @@ if [ "$ENABLE_POSTGRES" = "true" ]; then
         echo "[ENTRYPOINT] Setting PostgreSQL password..."
         sleep 2
         su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD '$DB_PASSWORD';\"" || true
+        su - postgres -c "psql -c \"CREATE DATABASE appdb;\"" || true
     fi
 fi
 
@@ -56,6 +57,7 @@ if [ "$ENABLE_MYSQL" = "true" ]; then
         echo "[ENTRYPOINT] Setting MySQL password..."
         sleep 5
         mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$DB_PASSWORD'; CREATE USER 'root'@'%' IDENTIFIED BY '$DB_PASSWORD'; GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;" || true
+        mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS appdb;" || true
     fi
 fi
 

@@ -324,6 +324,10 @@ async function getInstances(req, res) {
 
     // Mapear y añadir estado en tiempo real
     const instancesWithStatus = await Promise.all(instances.map(async (inst) => {
+      if (inst.status === 'PENDING' || inst.status === 'CREATING') {
+        return inst
+      }
+
       const realStatus = await dockerService.getContainerStatus(inst.containerName)
       
       // Si el estado en DB difiere del real, podemos sincronizarlo

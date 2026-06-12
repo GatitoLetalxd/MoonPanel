@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Server, Play, Square, RotateCcw, Copy, Check, Eye, EyeOff, Terminal, ExternalLink, AlertCircle } from 'lucide-react'
+import { Server, Play, Square, RotateCcw, Copy, Check, Eye, EyeOff, Terminal, ExternalLink, AlertCircle, Trash2, X, ShieldAlert } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge'
 import ResourceBar from '../../components/ResourceBar'
 import api from '../../api/axios'
@@ -12,6 +12,12 @@ export default function MyInstance() {
   const [showDbPassword, setShowDbPassword] = useState(false)
   const [copiedField, setCopiedField] = useState('')
   const [stats, setStats] = useState({ cpu: '0.00', ramUsed: 0, ramLimit: 0 })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [confirmSubdomain, setConfirmSubdomain] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showModeModal, setShowModeModal] = useState(false)
+  const [pendingMode, setPendingMode] = useState('')
+  const [modeLoading, setModeLoading] = useState(false)
 
   const loadData = async () => {
     try {
@@ -98,6 +104,36 @@ export default function MyInstance() {
       }))
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleDeleteInstance = async () => {
+    if (confirmSubdomain.toLowerCase() !== data?.instance?.subdomain?.toLowerCase()) return
+    setDeleteLoading(true)
+    try {
+      await api.delete('/api/client/instance')
+      alert('Instancia eliminada correctamente. Tu entorno ha sido restablecido al estado PENDING.')
+      setShowDeleteModal(false)
+      window.location.reload()
+    } catch (err) {
+      alert(`Error al eliminar la instancia: ${err.response?.data?.error || err.message}`)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleConfirmModeChange = async () => {
+    if (!pendingMode) return
+    setModeLoading(true)
+    try {
+      const res = await api.patch('/api/client/instance/mode', { mode: pendingMode })
+      setData(prev => ({ ...prev, instance: res.data.instance }))
+      setShowModeModal(false)
+      alert('Modo actualizado con éxito.')
+    } catch (err) {
+      alert(`Error al actualizar el modo: ${err.response?.data?.error || err.message}`)
+    } finally {
+      setModeLoading(false)
     }
   }
 
@@ -385,6 +421,13 @@ export default function MyInstance() {
               <div className="p-3 bg-moon-bg border border-moon-border/40 rounded text-[10px] text-moon-text/60 leading-relaxed">
                 Recomendamos inyectar tu llave pública SSH en la sección <span className="text-moon-accent font-semibold">Llaves SSH</span> para iniciar sesión de forma segura sin password.
               </div>
+
+              {instance.mode === 'AUTO_DEPLOY' && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded text-[10px] leading-relaxed flex gap-1.5 items-start">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <span>Modificar archivos manualmente vía SSH puede entrar en conflicto con futuros despliegues automáticos desde GitHub.</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -412,6 +455,10 @@ export default function MyInstance() {
                 <div className="flex justify-between py-1.5 border-b border-moon-border/40">
                   <span className="text-moon-text/50">Usuario:</span>
                   <span className="text-white select-all">{instance.database === 'POSTGRES' ? 'postgres' : 'root'}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-moon-border/40">
+                  <span className="text-moon-text/50">Database:</span>
+                  <span className="text-white select-all font-bold">appdb</span>
                 </div>
                 
                 <div className="space-y-1 pt-1">
@@ -444,15 +491,15 @@ export default function MyInstance() {
                   <div className="flex items-center justify-between bg-moon-bg border border-moon-border p-2 rounded text-[10px]">
                     <span className="text-white select-all break-all leading-relaxed">
                       {instance.database === 'POSTGRES' 
-                        ? `postgresql://postgres:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/postgres`
-                        : `mysql://root:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/mysql`
+                        ? `postgresql://postgres:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/appdb`
+                        : `mysql://root:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/appdb`
                       }
                     </span>
                     <button
                       onClick={() => handleCopy(
                         instance.database === 'POSTGRES' 
-                          ? `postgresql://postgres:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/postgres`
-                          : `mysql://root:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/mysql`,
+                          ? `postgresql://postgres:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/appdb`
+                          : `mysql://root:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/appdb`,
                         'connstring'
                       )}
                       className="p-1 hover:bg-moon-border text-moon-text/50 hover:text-white rounded shrink-0 ml-2"
@@ -465,9 +512,207 @@ export default function MyInstance() {
               </div>
             </div>
           )}
+
+          {/* Mode Selector Card */}
+          <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-4">
+            <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <RotateCcw size={16} className="text-moon-accent" />
+              <span>Modo de Despliegue</span>
+            </h3>
+            <div className="space-y-3 font-mono text-xs">
+              <p className="text-moon-text/60 leading-relaxed text-[11px]">
+                Elige cómo quieres gestionar tu servidor:
+              </p>
+              <select
+                value={instance.mode}
+                onChange={(e) => {
+                  setPendingMode(e.target.value)
+                  setShowModeModal(true)
+                }}
+                className="w-full px-3 py-2 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white rounded-lg focus:outline-none font-bold"
+              >
+                <option value="SSH">SSH Manual (Terminal)</option>
+                <option value="AUTO_DEPLOY">Despliegue Automático (GitHub)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Danger Zone Card */}
+          <div className="bg-moon-surface border border-rose-500/20 p-6 rounded-xl space-y-4">
+            <h3 className="font-bold text-rose-400 text-sm flex items-center gap-2">
+              <AlertCircle size={16} />
+              <span>Zona de Peligro</span>
+            </h3>
+            <div className="bg-rose-500/5 border border-rose-500/20 rounded-lg p-5 font-mono text-xs text-moon-text/85 space-y-4">
+              <p className="text-[10px] text-rose-400 leading-relaxed font-semibold">
+                ⚠️ ATENCIÓN: Al eliminar tu instancia se detendrá y borrará permanentemente tu contenedor Docker, base de datos y archivos. Los datos no se podrán recuperar.
+              </p>
+              <button
+                onClick={() => {
+                  setConfirmSubdomain('')
+                  setShowDeleteModal(true)
+                }}
+                disabled={actionLoading}
+                className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-bold rounded-lg transition-all-custom flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider text-[11px]"
+              >
+                <Trash2 size={13} />
+                <span>Eliminar Instancia</span>
+              </button>
+            </div>
+          </div>
+
         </div>
 
       </div>
+
+      {/* Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="w-full max-w-lg bg-moon-surface border border-rose-500/20 rounded-xl overflow-hidden shadow-2xl animate-scale-up">
+            
+            {/* Header */}
+            <div className="p-6 bg-rose-500/10 border-b border-rose-500/20 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                <ShieldAlert size={22} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white tracking-wide">¿Eliminar Instancia y Archivos?</h3>
+                <p className="text-xs text-rose-400/80 font-mono mt-1">
+                  Instancia: <span className="font-bold">{instance.subdomain}</span>
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowDeleteModal(false)}
+                className="text-moon-text/40 hover:text-white transition-all-custom"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Warning Content */}
+            <div className="p-6 space-y-4">
+              <div className="p-4 bg-rose-950/25 border border-rose-900/40 text-rose-300 text-xs rounded-lg space-y-1">
+                <p className="font-semibold text-rose-200">¡ATENCIÓN ELIMINACIÓN DE DATOS!</p>
+                <p className="leading-relaxed font-mono">
+                  Esta acción detendrá y eliminará el contenedor físico, todas tus bases de datos, variables de entorno y archivos montados del host permanentemente. Esto no se puede deshacer.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
+                  Escribe el subdominio (<span className="font-mono text-white font-bold">{instance.subdomain}</span>) para confirmar destrucción:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={confirmSubdomain}
+                  onChange={(e) => setConfirmSubdomain(e.target.value)}
+                  placeholder={instance.subdomain}
+                  className="w-full px-4 py-2.5 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-rose-500 focus:outline-none text-white placeholder-moon-text/20 rounded-lg font-mono text-sm transition-all-custom"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-6 bg-moon-card border-t border-moon-border/60 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-transparent hover:bg-moon-border/40 text-moon-text hover:text-white border border-moon-border rounded-lg text-sm font-semibold transition-all-custom"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={deleteLoading || confirmSubdomain.toLowerCase() !== instance.subdomain.toLowerCase()}
+                onClick={handleDeleteInstance}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:hover:bg-rose-600 text-white rounded-lg text-sm font-semibold shadow-lg shadow-rose-600/20 transition-all-custom flex items-center gap-1.5"
+              >
+                {deleteLoading ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Confirmar Eliminación</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Mode Change Confirmation Modal */}
+      {showModeModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="w-full max-w-md bg-moon-surface border border-moon-border rounded-xl overflow-hidden shadow-2xl animate-scale-up">
+            
+            {/* Header */}
+            <div className="p-6 bg-moon-accent/10 border-b border-moon-border flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-moon-accent/20 text-moon-accent flex items-center justify-center shrink-0">
+                <RotateCcw size={22} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white tracking-wide">Cambiar Modo de Despliegue</h3>
+                <p className="text-xs text-moon-text/50 font-mono mt-1">
+                  Subdominio: <span className="font-bold">{instance.subdomain}</span>
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowModeModal(false)}
+                className="text-moon-text/40 hover:text-white transition-all-custom"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Warning Content */}
+            <div className="p-6 space-y-4">
+              <p className="font-mono text-xs leading-relaxed text-slate-300">
+                ¿Estás seguro de que deseas cambiar el modo de despliegue a <span className="text-white font-bold">{pendingMode === 'SSH' ? 'SSH Manual (Terminal)' : 'Despliegue Automático (GitHub)'}</span>?
+              </p>
+              {pendingMode === 'AUTO_DEPLOY' && (
+                <div className="p-3 bg-moon-card border border-moon-border/60 rounded text-[11px] text-moon-text/60 leading-relaxed font-mono">
+                  * Habilitar el despliegue automático te permitirá clonar proyectos de GitHub e inyectar variables de entorno.
+                </div>
+              )}
+              {pendingMode === 'SSH' && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded text-[11px] leading-relaxed font-mono">
+                  * Cambiar a SSH Manual desactivará el panel de despliegues automatizados de GitHub.
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="p-6 bg-moon-card border-t border-moon-border/60 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowModeModal(false)}
+                className="px-4 py-2 bg-transparent hover:bg-moon-border/40 text-moon-text hover:text-white border border-moon-border rounded-lg text-sm font-semibold transition-all-custom"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={modeLoading}
+                onClick={handleConfirmModeChange}
+                className="px-4 py-2 bg-moon-accent hover:bg-moon-hover disabled:opacity-40 text-white rounded-lg text-sm font-semibold shadow-lg shadow-moon-accent/20 transition-all-custom flex items-center gap-1.5"
+              >
+                {modeLoading ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <RotateCcw size={16} />
+                    <span>Confirmar Cambio</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   )

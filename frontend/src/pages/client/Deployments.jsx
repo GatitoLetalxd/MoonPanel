@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Server, GitBranch, Rocket, Plus, Trash2, Copy, Check, Eye, EyeOff, Terminal, X, AlertCircle, Play } from 'lucide-react'
+import { Server, GitBranch, Rocket, Plus, Trash2, Copy, Check, Eye, EyeOff, Terminal, X, AlertCircle, Play, Key, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge'
 import api from '../../api/axios'
 
@@ -20,6 +20,9 @@ export default function Deployments() {
   const [showValues, setShowValues] = useState({}) // id -> boolean
   const [envLoading, setEnvLoading] = useState(false)
   const [copiedKey, setCopiedKey] = useState('')
+  const [showModeModal, setShowModeModal] = useState(false)
+  const [modeChangeLoading, setModeChangeLoading] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
 
   // SSE Logs Terminal fields
   const [activeDeploymentId, setActiveDeploymentId] = useState(null)
@@ -118,6 +121,20 @@ export default function Deployments() {
       setEnvVars(prev => prev.filter(v => v.id !== id))
     } catch (err) {
       alert(`Error al eliminar variable: ${err.response?.data?.error || err.message}`)
+    }
+  }
+
+  const handleActivateAutoDeploy = async () => {
+    setModeChangeLoading(true)
+    try {
+      const res = await api.patch('/api/client/instance/mode', { mode: 'AUTO_DEPLOY' })
+      setInstance(res.data.instance)
+      setShowModeModal(false)
+      window.location.reload()
+    } catch (err) {
+      alert(`Error al activar el despliegue automático: ${err.response?.data?.error || err.message}`)
+    } finally {
+      setModeChangeLoading(false)
     }
   }
 
@@ -244,7 +261,81 @@ export default function Deployments() {
           <div className="p-4 bg-moon-card rounded-lg border border-moon-border/60 text-xs font-mono text-moon-text/50">
             Puedes seguir conectándote por terminal usando el comando SSH provisto en la sección <span className="text-white font-bold">Mi Instancia</span>.
           </div>
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={() => setShowModeModal(true)}
+              className="px-6 py-3 bg-moon-accent hover:bg-moon-hover text-white font-bold rounded-lg shadow-lg shadow-moon-accent/25 transition-all-custom text-xs uppercase tracking-wider font-mono flex items-center justify-center gap-1.5"
+            >
+              <Rocket size={14} />
+              <span>Habilitar Modo Despliegue Automático</span>
+            </button>
+          </div>
         </div>
+
+        {/* Mode Change Confirmation Modal */}
+        {showModeModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+            <div className="w-full max-w-md bg-moon-surface border border-moon-border rounded-xl overflow-hidden shadow-2xl animate-scale-up">
+              
+              {/* Header */}
+              <div className="p-6 bg-moon-accent/10 border-b border-moon-border flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-moon-accent/20 text-moon-accent flex items-center justify-center shrink-0">
+                  <Rocket size={22} className="animate-pulse" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white tracking-wide">Activar Despliegue Automático</h3>
+                  <p className="text-xs text-moon-text/50 font-mono mt-1">
+                    Instancia: <span className="font-bold">{instance.subdomain}</span>
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowModeModal(false)}
+                  className="text-moon-text/40 hover:text-white transition-all-custom"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Warning Content */}
+              <div className="p-6 space-y-4">
+                <p className="font-mono text-xs leading-relaxed text-slate-300">
+                  ¿Deseas activar el Modo Despliegue Automático para este servidor ahora?
+                </p>
+                <div className="p-3 bg-moon-card border border-moon-border/60 rounded text-[11px] text-moon-text/60 leading-relaxed font-mono">
+                  * Esto te permitirá importar directamente repositorios públicos de GitHub y configurar variables de entorno para tu proyecto.
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="p-6 bg-moon-card border-t border-moon-border/60 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowModeModal(false)}
+                  className="px-4 py-2 bg-transparent hover:bg-moon-border/40 text-moon-text hover:text-white border border-moon-border rounded-lg text-sm font-semibold transition-all-custom"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={modeChangeLoading}
+                  onClick={handleActivateAutoDeploy}
+                  className="px-4 py-2 bg-moon-accent hover:bg-moon-hover disabled:opacity-40 text-white rounded-lg text-sm font-semibold shadow-lg shadow-moon-accent/20 transition-all-custom flex items-center gap-1.5"
+                >
+                  {modeChangeLoading ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Rocket size={14} />
+                      <span>Habilitar ahora</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
       </div>
     )
   }
@@ -271,6 +362,86 @@ export default function Deployments() {
               <Rocket size={18} className="text-moon-accent" />
               <span>Desplegar Nuevo Repositorio</span>
             </h3>
+
+            {/* Guía de Estructura de Repositorios (Collapsible) */}
+            <div className="border border-moon-border/60 rounded-lg bg-moon-card/45 overflow-hidden transition-all-custom">
+              <button
+                type="button"
+                onClick={() => setShowGuide(!showGuide)}
+                className="w-full px-4 py-3 flex items-center justify-between font-mono text-xs text-white hover:bg-moon-border/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen size={14} className="text-moon-accent" />
+                  <span className="font-bold">Guía de Estructura y Compatibilidad</span>
+                </div>
+                {showGuide ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+
+              {showGuide && (
+                <div className="p-4 border-t border-moon-border/40 font-mono text-xs space-y-4 leading-relaxed">
+                  
+                  {/* Grid de tecnologías */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    
+                    {/* Card: Frontend */}
+                    <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
+                      <span className="font-bold text-white flex items-center gap-1">💻 Frontend (React, Vite, Astro, etc.)</span>
+                      <p className="text-[11px] text-moon-text/70">
+                        • Requiere <code className="text-moon-accent font-semibold">package.json</code> con script <code className="text-white">"build"</code>.<br />
+                        • Debe compilar en carpeta <code className="text-white">dist</code> o <code className="text-white">build</code> en la raíz.
+                      </p>
+                    </div>
+
+                    {/* Card: Node.js */}
+                    <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
+                      <span className="font-bold text-white flex items-center gap-1">🟢 Node.js Backend (Express, Nest, etc.)</span>
+                      <p className="text-[11px] text-moon-text/70">
+                        • Requiere <code className="text-moon-accent font-semibold">package.json</code> en la raíz.<br />
+                        • Debe escuchar en <code className="text-white">process.env.PORT</code> (inyectado como 5000).<br />
+                        • Se inicia con <code className="text-white">npm start</code> o archivo <code className="text-white">index/app/server.js</code>.
+                      </p>
+                    </div>
+
+                    {/* Card: Python */}
+                    <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
+                      <span className="font-bold text-white flex items-center gap-1">🐍 Python (FastAPI, Flask, Django)</span>
+                      <p className="text-[11px] text-moon-text/70">
+                        • Requiere <code className="text-moon-accent font-semibold">requirements.txt</code> en la raíz.<br />
+                        • Debe escuchar en el puerto <code className="text-white">5000</code>.<br />
+                        • Inicia vía <code className="text-white">manage.py</code>, <code className="text-white">main.py</code> o <code className="text-white">app.py</code>.
+                      </p>
+                    </div>
+
+                    {/* Card: Estático */}
+                    <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
+                      <span className="font-bold text-white flex items-center gap-1">📄 HTML / CSS / JS Estático</span>
+                      <p className="text-[11px] text-moon-text/70">
+                        • Solo requiere un archivo <code className="text-moon-accent font-semibold">index.html</code> en la raíz.<br />
+                        • No necesita dependencias ni compilación.
+                      </p>
+                    </div>
+
+                  </div>
+
+                  {/* Advertencias Generales */}
+                  <div className="pt-3 border-t border-moon-border/40 space-y-2 text-[11px] text-amber-400">
+                    <p className="flex items-start gap-1">
+                      <span className="shrink-0 mt-0.5">💡</span>
+                      <span className="text-moon-text/85"><strong className="text-white">Regla de oro:</strong> Todos los archivos de configuración y arranque deben estar en la raíz de tu repositorio (no dentro de subcarpetas).</span>
+                    </p>
+                    <p className="flex items-start gap-1">
+                      <span className="shrink-0 mt-0.5">⚠️</span>
+                      <span>Tu aplicación debe correr/compilar en el puerto interno 3000 (para frontend) o escuchar en el puerto 5000 (para backend).</span>
+                    </p>
+                    <p className="flex items-start gap-1">
+                      <span className="shrink-0 mt-0.5">⚠️</span>
+                      <span>Únicamente se soportan repositorios de GitHub <strong>públicos</strong>.</span>
+                    </p>
+                  </div>
+
+                </div>
+              )}
+            </div>
 
             <form onSubmit={handleTriggerDeploy} className="space-y-4 font-mono text-sm">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

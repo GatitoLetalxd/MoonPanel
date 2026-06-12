@@ -126,14 +126,18 @@ async function runDeploy(deploymentId) {
     
     // 4. INSTALL DEPENDENCIES
     if (projectType === 'nodejs' || projectType === 'frontend') {
-      const instRes = await runCommandWithLogs(containerName, deploymentId, 'npm install')
+      let instRes = await runCommandWithLogs(containerName, deploymentId, 'npm install')
       if (!instRes.success) {
-        await updateStatus(deploymentId, 'FAILED')
-        return
+        await appendLog(deploymentId, `[WARNING] npm install failed. Retrying with --legacy-peer-deps...\n`)
+        instRes = await runCommandWithLogs(containerName, deploymentId, 'npm install --legacy-peer-deps')
+        if (!instRes.success) {
+          await updateStatus(deploymentId, 'FAILED')
+          return
+        }
       }
     } else if (projectType === 'python') {
       if (fs.existsSync(path.join(hostDir, 'requirements.txt'))) {
-        const instRes = await runCommandWithLogs(containerName, deploymentId, 'pip install -r requirements.txt')
+        const instRes = await runCommandWithLogs(containerName, deploymentId, 'pip3 install -r requirements.txt --break-system-packages')
         if (!instRes.success) {
           await updateStatus(deploymentId, 'FAILED')
           return
