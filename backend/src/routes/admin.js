@@ -24,6 +24,7 @@ router.delete('/instances/:id', adminController.deleteInstance)
 router.post('/instances/:id/start', adminController.startInstance)
 router.post('/instances/:id/stop', adminController.stopInstance)
 router.post('/instances/:id/restart', adminController.restartInstance)
+router.post('/instances/:id/force-launch', adminController.forceLaunchInstance)
 
 // Stats y SSH Info
 router.get('/instances/:id/stats', adminController.getInstanceStats)

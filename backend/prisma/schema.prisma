@@ -23,28 +23,46 @@ enum Role {
 }
 
 model Instance {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subdomain       String   @unique     // ej: "daniel" → daniel.moondev.online
-  webPort         Int      @unique     // puerto web (3010, 3030, etc.)
-  sshPort         Int      @unique     // puerto SSH (2210, 2220, etc.)
+  id              String       @id @default(uuid())
+  userId          String       @unique
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subdomain       String       @unique     // ej: "daniel" → daniel.moondev.online
+  webPort         Int          @unique     // puerto web (3010, 3030, etc.)
+  sshPort         Int          @unique     // puerto SSH (2210, 2220, etc.)
+  dbPort          Int?         @unique     // puerto externo de BD (5440, 5450, etc.)
   sshPassword     String               // contraseña temporal generada al crear
-  status          Status   @default(STOPPED)
-  ramLimit        Int      @default(512)   // MB
-  cpuLimit        Float    @default(0.5)   // cores
-  diskLimit       Int      @default(2048)  // MB
-  containerName   String   @unique
+  status          Status       @default(PENDING)
+  mode            Mode         @default(SSH)
+  database        DBType       @default(NONE)
+  dbPassword      String?
+  ramLimit        Int          @default(512)   // MB
+  cpuLimit        Float        @default(0.5)   // cores
+  diskLimit       Int          @default(2048)  // MB
+  containerName   String       @unique
   sshKeys         SSHKey[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  deployments     Deployment[]
+  envVars         EnvVar[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }
 
 enum Status {
+  PENDING
+  CREATING
   RUNNING
   STOPPED
-  CREATING
   ERROR
+}
+
+enum Mode {
+  SSH
+  AUTO_DEPLOY
+}
+
+enum DBType {
+  NONE
+  POSTGRES
+  MYSQL
 }
 
 model SSHKey {
@@ -55,3 +73,36 @@ model SSHKey {
   publicKey  String                        // contenido del .pub
   createdAt  DateTime @default(now())
 }
+
+model Deployment {
+  id            String       @id @default(uuid())
+  instanceId    String
+  instance      Instance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  repoUrl       String
+  branch        String       @default("main")
+  projectType   String       // nodejs, frontend, python, static, unknown
+  status        DeployStatus @default(PENDING)
+  logs          String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+enum DeployStatus {
+  PENDING
+  CLONING
+  INSTALLING
+  BUILDING
+  STARTING
+  SUCCESS
+  FAILED
+}
+
+model EnvVar {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  key        String
+  value      String
+  createdAt  DateTime @default(now())
+}
+

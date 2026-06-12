@@ -1,5 +1,7 @@
 FROM ubuntu:24.04
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y \
     openssh-server \
     nodejs \
@@ -8,17 +10,33 @@ RUN apt-get update && apt-get install -y \
     git \
     nano \
     wget \
+    nginx \
+    postgresql \
+    postgresql-contrib \
+    mysql-server \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir /var/run/sshd
+# Install global node tools
+RUN npm install -g pm2 serve
 
-# Permitir login por password y acceso root
+# Prepare service directories
+RUN mkdir -p /var/run/sshd
+RUN mkdir -p /var/run/postgresql && chown -R postgres:postgres /var/run/postgresql
+RUN mkdir -p /var/run/mysqld && chown -R mysql:mysql /var/run/mysqld
+
+# Configure SSH
 RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 RUN sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
 
+# Configure Nginx to listen on 3000 instead of 80 by default
+RUN sed -i 's/listen 80/listen 3000/g' /etc/nginx/sites-available/default
+
 EXPOSE 22 3000
 
-CMD ["/usr/sbin/sshd", "-D"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

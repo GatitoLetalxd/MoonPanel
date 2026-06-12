@@ -164,6 +164,19 @@ export default function InstanceDetail() {
     }
   }
 
+  const handleForceLaunch = async () => {
+    setActionLoading(true)
+    try {
+      const res = await api.post(`/api/admin/instances/${id}/force-launch`)
+      setInstance(res.data.instance)
+      alert('Instancia lanzada exitosamente.')
+    } catch (err) {
+      alert(`Error al lanzar instancia: ${err.response?.data?.error || err.message}`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   // Modificar recursos
   const handleUpdateLimits = async (e) => {
     e.preventDefault()
@@ -270,9 +283,18 @@ export default function InstanceDetail() {
 
         {/* Quick controls */}
         <div className="flex gap-2">
+          {instance.status === 'PENDING' && (
+            <button
+              onClick={handleForceLaunch}
+              disabled={actionLoading}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-moon-accent hover:bg-moon-hover text-white rounded-lg text-xs font-semibold tracking-wider font-mono uppercase transition-all-custom shadow-md shadow-moon-accent/25"
+            >
+              <span>Forzar lanzamiento</span>
+            </button>
+          )}
           <button
             onClick={() => handleContainerAction('start')}
-            disabled={actionLoading || instance.status === 'RUNNING'}
+            disabled={actionLoading || instance.status === 'RUNNING' || instance.status === 'PENDING'}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 disabled:opacity-40 disabled:hover:bg-transparent rounded-lg text-xs font-semibold tracking-wider font-mono uppercase transition-all-custom"
           >
             <Play size={14} />
@@ -280,7 +302,7 @@ export default function InstanceDetail() {
           </button>
           <button
             onClick={() => handleContainerAction('stop')}
-            disabled={actionLoading || instance.status === 'STOPPED'}
+            disabled={actionLoading || instance.status === 'STOPPED' || instance.status === 'PENDING'}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/20 disabled:opacity-40 disabled:hover:bg-transparent rounded-lg text-xs font-semibold tracking-wider font-mono uppercase transition-all-custom"
           >
             <Square size={14} />
@@ -288,8 +310,8 @@ export default function InstanceDetail() {
           </button>
           <button
             onClick={() => handleContainerAction('restart')}
-            disabled={actionLoading}
-            className="p-2.5 bg-moon-surface hover:bg-moon-border text-moon-text hover:text-white border border-moon-border rounded-lg transition-all-custom"
+            disabled={actionLoading || instance.status === 'PENDING'}
+            className="p-2.5 bg-moon-surface hover:bg-moon-border text-moon-text hover:text-white border border-moon-border rounded-lg transition-all-custom disabled:opacity-40"
             title="Reiniciar Contenedor"
           >
             <RotateCcw size={16} className={actionLoading ? 'animate-spin' : ''} />
@@ -453,6 +475,12 @@ export default function InstanceDetail() {
               <Key size={18} className="text-moon-accent" />
               <span>Acceso Técnico SSH</span>
             </h3>
+
+            {instance.status === 'PENDING' && (
+              <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-lg font-mono leading-relaxed">
+                La instancia está PENDIENTE. Los accesos SSH y base de datos no estarán activos hasta que se realice el lanzamiento.
+              </div>
+            )}
 
             {sshInfo ? (
               <div className="space-y-4 font-mono text-xs text-moon-text/80 bg-moon-card p-4 rounded-lg border border-moon-border/60">

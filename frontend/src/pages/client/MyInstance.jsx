@@ -9,6 +9,7 @@ export default function MyInstance() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showDbPassword, setShowDbPassword] = useState(false)
   const [copiedField, setCopiedField] = useState('')
   const [stats, setStats] = useState({ cpu: '0.00', ramUsed: 0, ramLimit: 0 })
 
@@ -16,10 +17,12 @@ export default function MyInstance() {
     try {
       const response = await api.get('/api/client/instance')
       setData(response.data)
-      setStats(prev => ({
-        ...prev,
-        ramLimit: response.data.instance.ramLimit
-      }))
+      if (response.data.instance) {
+        setStats(prev => ({
+          ...prev,
+          ramLimit: response.data.instance.ramLimit
+        }))
+      }
     } catch (error) {
       console.error('[MY INSTANCE ERROR] Error al cargar:', error)
     } finally {
@@ -74,6 +77,30 @@ export default function MyInstance() {
     }
   }
 
+  const handleLaunchInstance = async () => {
+    setActionLoading(true)
+    setData(prev => ({
+      ...prev,
+      instance: { ...prev.instance, status: 'CREATING' }
+    }))
+    try {
+      const res = await api.post('/api/client/instance/launch')
+      setData(prev => ({
+        ...prev,
+        instance: res.data.instance
+      }))
+      await loadData()
+    } catch (error) {
+      alert(`Error al lanzar la instancia: ${error.response?.data?.error || error.message}`)
+      setData(prev => ({
+        ...prev,
+        instance: { ...prev.instance, status: 'PENDING' }
+      }))
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   const handleCopy = (text, field) => {
     navigator.clipboard.writeText(text)
     setCopiedField(field)
@@ -108,6 +135,47 @@ export default function MyInstance() {
   }
 
   const { instance, sshInfo } = data
+
+  // Pantalla de lanzamiento si está PENDING o CREATING
+  if (instance.status === 'PENDING' || instance.status === 'CREATING') {
+    return (
+      <div className="flex-1 p-8 bg-moon-bg min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-lg bg-moon-surface border border-moon-border p-8 rounded-xl shadow-xl">
+          <div className="w-16 h-16 bg-moon-accent/15 text-moon-accent rounded-full border border-moon-accent/20 flex items-center justify-center mx-auto mb-6">
+            <Server size={32} className={instance.status === 'CREATING' ? 'animate-pulse' : ''} />
+          </div>
+          <h3 className="font-bold text-white text-xl mb-3">
+            {instance.status === 'CREATING' ? 'Inicializando Instancia...' : 'Tu Instancia está Pendiente'}
+          </h3>
+          <p className="text-sm text-moon-text/60 font-mono mb-6 leading-relaxed">
+            {instance.status === 'CREATING' 
+              ? 'Estamos levantando tu contenedor y configurando SSH, bases de datos y red. Esto tomará unos segundos.'
+              : 'Tu espacio en MoonVPS ha sido registrado. Aún no se ha creado tu contenedor físico. Pulsa el botón inferior para lanzar tu entorno al instante.'
+            }
+          </p>
+          
+          <button
+            onClick={handleLaunchInstance}
+            disabled={instance.status === 'CREATING' || actionLoading}
+            className="px-6 py-3 bg-moon-accent hover:bg-moon-hover text-white font-bold rounded-lg shadow-lg shadow-moon-accent/25 transition-all-custom flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
+          >
+            {(instance.status === 'CREATING' || actionLoading) ? (
+              <>
+                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Creando Contenedor...</span>
+              </>
+            ) : (
+              <>
+                <Play size={16} />
+                <span>Lanzar mi instancia</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const fullDomain = `${instance.subdomain}.moondev.online`
 
   return (
@@ -241,7 +309,6 @@ export default function MyInstance() {
                     </span>
                   </div>
                   <div className="h-2.5 w-full bg-moon-card border border-moon-border/60 rounded-full overflow-hidden">
-                    {/* Convertir porcentaje relativo al límite asignado */}
                     <div 
                       className="h-full rounded-full transition-all duration-500 ease-out shadow-sm bg-emerald-500 shadow-emerald-500/20"
                       style={{ width: `${Math.min(Math.round((parseFloat(stats.cpu) / (instance.cpuLimit * 100)) * 100), 100)}%` }}
@@ -265,25 +332,24 @@ export default function MyInstance() {
 
         </div>
 
-        {/* Right Side: SSH Access Card */}
-        <div>
+        {/* Right Side: SSH Access & Database Card */}
+        <div className="space-y-6">
           <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-4">
             <h3 className="font-bold text-white text-base flex items-center gap-2">
               <Terminal size={18} className="text-moon-accent" />
               <span>Acceso SSH del Contenedor</span>
             </h3>
 
-            {/* Custom technical card layout (requested background #0d0d14 and JetBrains Mono) */}
             <div className="bg-moon-card border border-moon-border rounded-lg p-5 font-mono text-xs text-moon-text/85 space-y-4">
               
               <div className="space-y-1">
                 <span className="text-moon-text/40 uppercase text-[10px] tracking-wider font-semibold">Comando SSH</span>
                 <div className="flex items-center justify-between bg-moon-bg border border-moon-border p-2 rounded">
                   <span className="text-emerald-400 select-all font-semibold break-all">
-                    ssh root@{sshInfo.host} -p {sshInfo.sshPort}
+                    ssh root@{sshInfo?.host} -p {sshInfo?.sshPort}
                   </span>
                   <button
-                    onClick={() => handleCopy(`ssh root@${sshInfo.host} -p ${sshInfo.sshPort}`, 'sshcmd')}
+                    onClick={() => handleCopy(`ssh root@${sshInfo?.host} -p ${sshInfo?.sshPort}`, 'sshcmd')}
                     className="p-1 hover:bg-moon-border text-moon-text/50 hover:text-white rounded shrink-0 ml-2"
                     title="Copiar comando"
                   >
@@ -296,7 +362,7 @@ export default function MyInstance() {
                 <span className="text-moon-text/40 uppercase text-[10px] tracking-wider font-semibold">Contraseña Temporal</span>
                 <div className="flex items-center justify-between bg-moon-bg border border-moon-border p-2 rounded">
                   <span className="text-white font-bold select-all tracking-wider">
-                    {showPassword ? sshInfo.password : '••••••••••••'}
+                    {showPassword ? sshInfo?.password : '••••••••••••'}
                   </span>
                   <div className="flex gap-1.5">
                     <button
@@ -306,7 +372,7 @@ export default function MyInstance() {
                       {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                     <button
-                      onClick={() => handleCopy(sshInfo.password, 'password')}
+                      onClick={() => handleCopy(sshInfo?.password, 'password')}
                       className="p-1 hover:bg-moon-border text-moon-text/50 hover:text-white rounded"
                       title="Copiar contraseña"
                     >
@@ -321,6 +387,84 @@ export default function MyInstance() {
               </div>
             </div>
           </div>
+
+          {/* Database Info Card */}
+          {instance.database !== 'NONE' && (
+            <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-4">
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <Server size={18} className="text-moon-accent" />
+                <span>Base de Datos Preinstalada</span>
+              </h3>
+
+              <div className="bg-moon-card border border-moon-border rounded-lg p-5 font-mono text-xs text-moon-text/85 space-y-4">
+                <div className="flex justify-between py-1.5 border-b border-moon-border/40">
+                  <span className="text-moon-text/50">Motor:</span>
+                  <span className="text-white font-bold">{instance.database}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-moon-border/40">
+                  <span className="text-moon-text/50">Host:</span>
+                  <span className="text-white select-all">{sshInfo?.host}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-moon-border/40">
+                  <span className="text-moon-text/50">Puerto Externo:</span>
+                  <span className="text-white font-bold select-all">{instance.dbPort}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-moon-border/40">
+                  <span className="text-moon-text/50">Usuario:</span>
+                  <span className="text-white select-all">{instance.database === 'POSTGRES' ? 'postgres' : 'root'}</span>
+                </div>
+                
+                <div className="space-y-1 pt-1">
+                  <span className="text-moon-text/50 block mb-1">Contraseña:</span>
+                  <div className="flex items-center justify-between bg-moon-bg border border-moon-border p-2 rounded">
+                    <span className="text-white font-bold select-all tracking-wider">
+                      {showDbPassword ? instance.dbPassword : '••••••••••••'}
+                    </span>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setShowDbPassword(!showDbPassword)}
+                        className="p-1 hover:bg-moon-border text-moon-text/50 hover:text-white rounded"
+                      >
+                        {showDbPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                      <button
+                        onClick={() => handleCopy(instance.dbPassword, 'dbpassword')}
+                        className="p-1 hover:bg-moon-border text-moon-text/50 hover:text-white rounded"
+                        title="Copiar contraseña de BD"
+                      >
+                        {copiedField === 'dbpassword' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Connection String */}
+                <div className="space-y-1">
+                  <span className="text-moon-text/50 block mb-1 font-semibold">Connection String:</span>
+                  <div className="flex items-center justify-between bg-moon-bg border border-moon-border p-2 rounded text-[10px]">
+                    <span className="text-white select-all break-all leading-relaxed">
+                      {instance.database === 'POSTGRES' 
+                        ? `postgresql://postgres:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/postgres`
+                        : `mysql://root:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/mysql`
+                      }
+                    </span>
+                    <button
+                      onClick={() => handleCopy(
+                        instance.database === 'POSTGRES' 
+                          ? `postgresql://postgres:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/postgres`
+                          : `mysql://root:${instance.dbPassword}@${sshInfo?.host}:${instance.dbPort}/mysql`,
+                        'connstring'
+                      )}
+                      className="p-1 hover:bg-moon-border text-moon-text/50 hover:text-white rounded shrink-0 ml-2"
+                      title="Copiar connection string"
+                    >
+                      {copiedField === 'connstring' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

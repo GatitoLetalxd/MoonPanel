@@ -8,7 +8,8 @@ import {
   Server, 
   Key, 
   LogOut, 
-  Terminal
+  Terminal,
+  GitBranch
 } from 'lucide-react'
 
 export default function Sidebar() {
@@ -89,6 +90,14 @@ export default function Sidebar() {
               >
                 <Key size={20} />
                 <span>Llaves SSH</span>
+              </NavLink>
+
+              <NavLink 
+                to="/client/deployments" 
+                className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+              >
+                <GitBranch size={20} />
+                <span>Despliegues</span>
               </NavLink>
             </>
           )}

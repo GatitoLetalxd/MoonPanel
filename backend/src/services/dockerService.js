@@ -33,11 +33,28 @@ async function buildBaseImage() {
 }
 
 // Crear container para un cliente
-async function createContainer({ containerName, webPort, sshPort, ramLimit, cpuLimit, sshPassword }) {
+async function createContainer({ containerName, webPort, sshPort, dbPort, ramLimit, cpuLimit, sshPassword, database, dbPassword }) {
   // Asegurarnos de que el directorio del cliente existe en el host
   const hostDir = `/home/clients/${containerName}`
   if (!fs.existsSync(hostDir)) {
     fs.mkdirSync(hostDir, { recursive: true })
+  }
+
+  const portBindings = {
+    '3000/tcp': [{ HostPort: String(webPort) }],
+    '22/tcp':   [{ HostPort: String(sshPort) }]
+  }
+
+  const env = [
+    `DB_PASSWORD=${dbPassword || ''}`,
+    `ENABLE_POSTGRES=${database === 'POSTGRES' ? 'true' : 'false'}`,
+    `ENABLE_MYSQL=${database === 'MYSQL' ? 'true' : 'false'}`
+  ]
+
+  // Exponer puerto de BD si aplica
+  if (database !== 'NONE' && dbPort) {
+    const internalPort = database === 'POSTGRES' ? '5432/tcp' : '3306/tcp'
+    portBindings[internalPort] = [{ HostPort: String(dbPort) }]
   }
 
   const container = await docker.createContainer({
@@ -45,15 +62,13 @@ async function createContainer({ containerName, webPort, sshPort, ramLimit, cpuL
     Image: 'moonpanel-client-base:latest',
     Tty: true,
     OpenStdin: true,
+    Env: env,
     HostConfig: {
       Memory: ramLimit * 1024 * 1024,
       MemorySwap: ramLimit * 1024 * 1024 * 2, // 2x RAM
       CpuQuota: Math.floor(cpuLimit * 100000),
       CpuPeriod: 100000,
-      PortBindings: {
-        '3000/tcp': [{ HostPort: String(webPort) }],
-        '22/tcp':   [{ HostPort: String(sshPort) }]
-      },
+      PortBindings: portBindings,
       RestartPolicy: { Name: 'unless-stopped' },
       Binds: [`${hostDir}:/app`]
     },
@@ -78,6 +93,36 @@ async function createContainer({ containerName, webPort, sshPort, ramLimit, cpuL
   })
 
   return container
+}
+
+// Ejecutar comando dentro del contenedor
+async function execInContainer(containerName, command) {
+  try {
+    const container = docker.getContainer(containerName)
+    const execObj = await container.exec({
+      Cmd: ['bash', '-c', command],
+      AttachStdout: true,
+      AttachStderr: true
+    })
+    const stream = await execObj.start({ hijack: true, stdin: false })
+    
+    return new Promise((resolve, reject) => {
+      let stdout = ''
+      let stderr = ''
+      docker.modem.demuxStream(stream, {
+        write: (chunk) => { stdout += chunk.toString() }
+      }, {
+        write: (chunk) => { stderr += chunk.toString() }
+      })
+      stream.on('end', () => {
+        resolve(stdout + stderr)
+      })
+      stream.on('error', reject)
+    })
+  } catch (error) {
+    console.error(`[DOCKER EXEC ERROR] en contenedor ${containerName}:`, error.message)
+    throw error
+  }
 }
 
 // Iniciar container
@@ -243,5 +288,6 @@ module.exports = {
   getStats,
   addSSHKeyToContainer,
   removeSSHKeyFromContainer,
-  getContainerStatus
+  getContainerStatus,
+  execInContainer
 }

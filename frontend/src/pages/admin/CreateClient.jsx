@@ -8,6 +8,8 @@ export default function CreateClient() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [mode, setMode] = useState('SSH')
+  const [database, setDatabase] = useState('NONE')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   
@@ -68,7 +70,9 @@ export default function CreateClient() {
       const response = await api.post('/api/admin/clients', {
         username: cleanUsername,
         email: email.trim(),
-        password
+        password,
+        mode,
+        database
       })
       
       setProvisionedData(response.data)
@@ -203,6 +207,37 @@ export default function CreateClient() {
                 </div>
               </div>
             </div>
+ 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
+                  Modo de Instancia
+                </label>
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white rounded-lg focus:outline-none transition-all-custom font-mono text-sm"
+                >
+                  <option value="SSH">SSH Manual</option>
+                  <option value="AUTO_DEPLOY">Despliegue Automático (GitHub)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
+                  Motor de Base de Datos
+                </label>
+                <select
+                  value={database}
+                  onChange={(e) => setDatabase(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white rounded-lg focus:outline-none transition-all-custom font-mono text-sm"
+                >
+                  <option value="NONE">Ninguno</option>
+                  <option value="POSTGRES">PostgreSQL</option>
+                  <option value="MYSQL">MySQL</option>
+                </select>
+              </div>
+            </div>
 
             <button
               type="submit"
@@ -235,6 +270,14 @@ export default function CreateClient() {
                   <span className="text-moon-accent font-semibold">{provisionedData.instance?.subdomain}.moondev.online</span>
                 </div>
                 <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                  <span className="text-moon-text/50">Modo de Instancia:</span>
+                  <span className="text-white font-semibold">{provisionedData.instance?.mode === 'AUTO_DEPLOY' ? 'Despliegue Automático (GitHub)' : 'SSH Manual'}</span>
+                </div>
+                <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                  <span className="text-moon-text/50">Base de Datos:</span>
+                  <span className="text-white font-semibold">{provisionedData.instance?.database}</span>
+                </div>
+                <div className="flex justify-between border-b border-moon-border/40 pb-2">
                   <span className="text-moon-text/50">Puerto Web Externo:</span>
                   <span className="text-white font-semibold">{provisionedData.instance?.webPort}</span>
                 </div>
@@ -242,10 +285,32 @@ export default function CreateClient() {
                   <span className="text-moon-text/50">Puerto SSH Externo:</span>
                   <span className="text-white font-semibold">{provisionedData.instance?.sshPort}</span>
                 </div>
+                {provisionedData.instance?.database !== 'NONE' && (
+                  <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                    <span className="text-moon-text/50">Puerto BD Externo:</span>
+                    <span className="text-white font-semibold">{provisionedData.instance?.dbPort}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-b border-moon-border/40 pb-2">
                   <span className="text-moon-text/50">Nombre Contenedor:</span>
                   <span className="text-white">{provisionedData.instance?.containerName}</span>
                 </div>
+                
+                {provisionedData.instance?.database !== 'NONE' && (
+                  <div className="pt-2">
+                    <span className="text-moon-text/50 block mb-1.5">Contraseña de Base de Datos ({provisionedData.instance?.database === 'POSTGRES' ? 'Usuario: postgres' : 'Usuario: root'}):</span>
+                    <div className="flex items-center justify-between bg-moon-bg border border-moon-border p-3 rounded-lg">
+                      <span className="text-white select-all font-bold tracking-wider">{provisionedData.instance?.dbPassword}</span>
+                      <button
+                        onClick={() => handleCopy(provisionedData.instance?.dbPassword, 'dbPassword')}
+                        className="p-1.5 hover:bg-moon-border text-moon-text/60 hover:text-white rounded transition-all-custom"
+                        title="Copiar contraseña de BD"
+                      >
+                        {copiedKey === 'dbPassword' ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Contraseña SSH Temporal */}
                 <div className="pt-2">
