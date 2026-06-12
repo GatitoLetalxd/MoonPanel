@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, User, Mail, Lock, Copy, Check, Server, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, User, Mail, Lock, Copy, Check, Server, Eye, EyeOff, Globe, Ban } from 'lucide-react'
 import api from '../../api/axios'
 
 export default function CreateClient() {
@@ -11,6 +11,26 @@ export default function CreateClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   
+  // Lista de subdominios predefinidos y verificación de uso
+  const [existingClients, setExistingClients] = useState([])
+  const [fetchingClients, setFetchingClients] = useState(true)
+
+  const SUBDOMAINS = ['user01', 'user02', 'user03', 'user04', 'user05', 'user06', 'user07', 'user08', 'user09', 'user10']
+
+  useEffect(() => {
+    const fetchExistingClients = async () => {
+      try {
+        const response = await api.get('/api/admin/clients')
+        setExistingClients(response.data)
+      } catch (err) {
+        console.error('[FETCH EXISTING CLIENTS ERROR]', err)
+      } finally {
+        setFetchingClients(false)
+      }
+    }
+    fetchExistingClients()
+  }, [])
+
   // Guardar datos aprovisionados tras la creación exitosa
   const [provisionedData, setProvisionedData] = useState(null)
   const [copiedKey, setCopiedKey] = useState('')
@@ -28,11 +48,18 @@ export default function CreateClient() {
     setError('')
     setLoading(true)
 
-    // Validar nombre de usuario
+    if (!username) {
+      setError('Por favor selecciona uno de los subdominios predefinidos.')
+      setLoading(false)
+      return
+    }
+
     const cleanUsername = username.trim().toLowerCase()
-    const regex = /^[a-z0-9-]+$/
-    if (!regex.test(cleanUsername) || cleanUsername.length < 3 || cleanUsername.length > 30) {
-      setError('El nombre de usuario debe tener de 3 a 30 caracteres y solo contener letras minúsculas, números y guiones.')
+    
+    // Verificar doblemente que no esté en uso
+    const isInUse = existingClients.some(c => c.username.toLowerCase() === cleanUsername)
+    if (isInUse) {
+      setError(`El subdominio ${cleanUsername}.moondev.online ya está en uso por otro cliente.`)
       setLoading(false)
       return
     }
@@ -65,7 +92,7 @@ export default function CreateClient() {
         </Link>
         <div>
           <h2 className="text-2xl font-bold text-white tracking-wide">Aprovisionar Cliente</h2>
-          <p className="text-sm text-moon-text/50 font-mono">Crear cuenta y desplegar contenedor automático para moondev.online</p>
+          <p className="text-sm text-moon-text/50 font-mono">Seleccionar subdominio y desplegar contenedor automático para moondev.online</p>
         </div>
       </div>
 
@@ -78,29 +105,59 @@ export default function CreateClient() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
-                  Nombre de Usuario (Subdominio)
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-moon-text/40">
-                    <User size={18} />
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="ej: daniel"
-                    className="w-full pl-10 pr-4 py-2.5 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white placeholder-moon-text/20 rounded-lg focus:outline-none transition-all-custom font-mono text-sm"
-                  />
+            {/* Subdomain selector section */}
+            <div className="space-y-4">
+              <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider">
+                Selecciona un Subdominio Disponible (user01 - user10)
+              </label>
+              
+              {fetchingClients ? (
+                <div className="flex items-center gap-2 py-4 font-mono text-xs text-moon-text/50">
+                  <span className="w-4 h-4 border-2 border-moon-accent/30 border-t-moon-accent rounded-full animate-spin" />
+                  <span>Verificando disponibilidad de subdominios...</span>
                 </div>
-                <span className="text-[10px] text-moon-text/40 font-mono mt-1 block">
-                  Se convertirá en: <span className="text-moon-accent">{username.trim().toLowerCase() || '...'}.moondev.online</span>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {SUBDOMAINS.map((sub) => {
+                    const isInUse = existingClients.some(c => c.username.toLowerCase() === sub.toLowerCase());
+                    const isSelected = username === sub;
+                    
+                    return (
+                      <button
+                        key={sub}
+                        type="button"
+                        disabled={isInUse}
+                        onClick={() => setUsername(sub)}
+                        className={`p-3 rounded-lg border text-xs font-mono flex flex-col items-center justify-center gap-1.5 transition-all-custom ${
+                          isInUse 
+                            ? 'bg-rose-950/10 border-rose-900/10 text-rose-400/50 cursor-not-allowed opacity-50' 
+                            : isSelected
+                              ? 'bg-moon-accent border-moon-accent text-white shadow-lg shadow-moon-accent/20 font-bold scale-105'
+                              : 'bg-moon-card border-moon-border hover:border-moon-accent/40 text-moon-text hover:text-white'
+                        }`}
+                      >
+                        <span className="font-semibold">{sub}</span>
+                        {isInUse ? (
+                          <span className="text-[9px] bg-rose-500/10 border border-rose-500/20 px-1 py-0.5 rounded text-rose-400 flex items-center gap-0.5"><Ban size={8} /> Ocupado</span>
+                        ) : isSelected ? (
+                          <span className="text-[9px] bg-white/20 px-1 py-0.5 rounded text-white font-bold flex items-center gap-0.5"><Check size={8} /> Activo</span>
+                        ) : (
+                          <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.5 rounded text-emerald-400 flex items-center gap-0.5"><Globe size={8} /> Disponible</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              
+              {username && (
+                <span className="text-[10px] text-moon-text/40 font-mono block">
+                  Subdominio asignado: <span className="text-moon-accent font-semibold">{username}.moondev.online</span>
                 </span>
-              </div>
+              )}
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
                   Correo Electrónico
@@ -119,31 +176,31 @@ export default function CreateClient() {
                   />
                 </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
-                Contraseña del Panel de Cliente
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-moon-text/40">
-                  <Lock size={18} />
-                </span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Contraseña del panel"
-                  className="w-full pl-10 pr-10 py-2.5 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white placeholder-moon-text/20 rounded-lg focus:outline-none transition-all-custom font-mono text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-moon-text/40 hover:text-white transition-all-custom"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+              <div>
+                <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
+                  Contraseña del Panel de Cliente
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-moon-text/40">
+                    <Lock size={18} />
+                  </span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Contraseña del panel"
+                    className="w-full pl-10 pr-10 py-2.5 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white placeholder-moon-text/20 rounded-lg focus:outline-none transition-all-custom font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-moon-text/40 hover:text-white transition-all-custom"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
 

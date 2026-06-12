@@ -44,9 +44,7 @@ export default function Login() {
         
         {/* Header */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-moon-accent to-indigo-500 flex items-center justify-center text-white mb-4 shadow-lg shadow-moon-accent/25 animate-pulse">
-            <Moon size={28} className="text-white fill-white/10" />
-          </div>
+          <img src="/Moon-icon.png" alt="MoonPanel Logo" className="w-14 h-14 object-contain mb-4 animate-pulse" />
           <h2 className="text-2xl font-bold text-white tracking-wide">MoonPanel</h2>
           <p className="text-sm text-moon-text/50 font-mono mt-1">moondev.online</p>
         </div>

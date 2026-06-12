@@ -26,11 +26,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-moon-surface border-r border-moon-border flex flex-col justify-between h-screen sticky top-0">
       <div className="p-6">
-        {/* Brand header */}
         <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 rounded-full bg-moon-accent flex items-center justify-center text-white font-bold">
-            🌙
-          </div>
+          <img src="/Moon-icon.png" alt="MoonPanel Logo" className="w-8 h-8 object-contain rounded-lg" />
           <div>
             <h1 className="font-bold text-lg leading-tight text-white tracking-wide">MoonPanel</h1>
             <span className="text-xs text-moon-accent font-semibold tracking-wider font-mono">moondev.online</span>
