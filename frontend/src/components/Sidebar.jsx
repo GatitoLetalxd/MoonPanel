@@ -1,6 +1,7 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import InstanceSelector from './InstanceSelector'
 import { 
   LayoutDashboard, 
   Users, 
@@ -49,6 +50,11 @@ export default function Sidebar({ onCloseMobile }) {
           }`}>
             {isAdmin ? 'ADMINISTRADOR' : 'CLIENTE'}
           </span>
+          {!isAdmin && (
+            <div className="mt-4 pt-3 border-t border-moon-border/40">
+              <InstanceSelector />
+            </div>
+          )}
         </div>
 
         {/* Navigation list */}

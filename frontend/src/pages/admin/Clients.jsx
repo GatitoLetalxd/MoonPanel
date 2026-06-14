@@ -138,24 +138,34 @@ export default function Clients() {
                     <td className="p-4 font-semibold">{client.username}</td>
                     <td className="p-4 font-mono text-xs text-moon-text/80">{client.email}</td>
                     <td className="p-4">
-                      {client.instance ? (
-                        <a 
-                          href={`http://${client.instance.subdomain}.moondev.online`} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="text-moon-accent hover:underline inline-flex items-center gap-1 font-mono text-xs"
-                        >
-                          {client.instance.subdomain}.moondev.online
-                        </a>
+                      {client.instances && client.instances.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {client.instances.map(inst => (
+                            <a 
+                              key={inst.id}
+                              href={`http://${inst.subdomain}.moondev.online`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-moon-accent hover:underline inline-flex items-center gap-1 font-mono text-xs"
+                            >
+                              {inst.subdomain}.moondev.online
+                            </a>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-rose-400/80 text-xs italic">Sin Instancia</span>
                       )}
                     </td>
                     <td className="p-4 font-mono text-xs">
-                      {client.instance ? (
-                        <div className="flex gap-2">
-                          <span className="px-1.5 py-0.5 bg-moon-card border border-moon-border rounded">Web: {client.instance.webPort}</span>
-                          <span className="px-1.5 py-0.5 bg-moon-card border border-moon-border rounded">SSH: {client.instance.sshPort}</span>
+                      {client.instances && client.instances.length > 0 ? (
+                        <div className="flex flex-col gap-1.5">
+                          {client.instances.map(inst => (
+                            <div key={inst.id} className="flex gap-1.5 items-center">
+                              <span className="text-[10px] text-moon-text/60 font-bold uppercase">{inst.subdomain}:</span>
+                              <span className="px-1.5 py-0.5 bg-moon-card border border-moon-border rounded text-[10px]">Web: {inst.webPort}</span>
+                              <span className="px-1.5 py-0.5 bg-moon-card border border-moon-border rounded text-[10px]">SSH: {inst.sshPort}</span>
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         '-'

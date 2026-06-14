@@ -3,18 +3,26 @@ const dockerService = require('../services/dockerService')
 const { launchInstanceHelper } = require('./adminController')
 
 // Helper para obtener la instancia del cliente logueado
-async function getClientInstance(userId) {
-  const instance = await prisma.instance.findUnique({
-    where: { userId },
-    include: { sshKeys: true }
+async function getClientInstance(req) {
+  const instanceId = req.headers['x-instance-id'] || req.query.instanceId
+  if (instanceId) {
+    const inst = await prisma.instance.findFirst({
+      where: { id: instanceId, userId: req.user.id },
+      include: { sshKeys: true }
+    })
+    if (inst) return inst
+  }
+  return await prisma.instance.findFirst({
+    where: { userId: req.user.id },
+    include: { sshKeys: true },
+    orderBy: { createdAt: 'asc' }
   })
-  return instance
 }
 
 // GET /api/client/instance
 async function getInstance(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) {
       return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
     }
@@ -54,7 +62,7 @@ async function getInstance(req, res) {
 // POST /api/client/instance/launch
 async function launchInstance(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) {
       return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
     }
@@ -79,7 +87,7 @@ async function launchInstance(req, res) {
 // POST /api/client/instance/start
 async function startInstance(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     if (instance.status === 'PENDING') {
@@ -103,7 +111,7 @@ async function startInstance(req, res) {
 // POST /api/client/instance/stop
 async function stopInstance(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     if (instance.status === 'PENDING') {
@@ -127,7 +135,7 @@ async function stopInstance(req, res) {
 // POST /api/client/instance/restart
 async function restartInstance(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     if (instance.status === 'PENDING') {
@@ -151,7 +159,7 @@ async function restartInstance(req, res) {
 // GET /api/client/instance/stats
 async function getInstanceStats(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     if (instance.status === 'PENDING') {
@@ -182,7 +190,7 @@ async function getInstanceStats(req, res) {
 // GET /api/client/ssh-keys
 async function getSSHKeys(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     const keys = await prisma.sSHKey.findMany({
@@ -203,7 +211,7 @@ async function addSSHKey(req, res) {
       return res.status(400).json({ error: 'Etiqueta y llave pública son requeridas.' })
     }
 
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     const cleanKey = publicKey.trim()
@@ -236,7 +244,7 @@ async function deleteSSHKey(req, res) {
   try {
     const { id } = req.params
 
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     const key = await prisma.sSHKey.findFirst({
@@ -271,7 +279,7 @@ async function deleteSSHKey(req, res) {
 // GET /api/client/envvars
 async function getEnvVars(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     const { decrypt } = require('../services/cryptoService')
@@ -300,7 +308,7 @@ async function addOrUpdateEnvVar(req, res) {
       return res.status(400).json({ error: 'El nombre de la variable (key) es requerido.' })
     }
 
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     const { encrypt, decrypt } = require('../services/cryptoService')
@@ -344,7 +352,7 @@ async function addOrUpdateEnvVar(req, res) {
 async function deleteEnvVar(req, res) {
   try {
     const { id } = req.params
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     const envVar = await prisma.envVar.findFirst({
@@ -371,7 +379,7 @@ async function deleteEnvVar(req, res) {
 // GET /api/client/deployments
 async function getDeployments(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     const deployments = await prisma.deployment.findMany({
@@ -393,7 +401,7 @@ async function triggerDeploy(req, res) {
       return res.status(400).json({ error: 'La URL del repositorio de GitHub es requerida.' })
     }
 
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) return res.status(404).json({ error: 'Instancia no encontrada.' })
 
     if (instance.status === 'PENDING') {
@@ -502,7 +510,7 @@ async function getDeployLogs(req, res) {
 // DELETE /api/client/instance
 async function deleteInstance(req, res) {
   try {
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) {
       return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
     }
@@ -550,7 +558,7 @@ async function updateInstanceMode(req, res) {
       return res.status(400).json({ error: 'Modo de despliegue inválido. Debe ser SSH o AUTO_DEPLOY.' })
     }
 
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) {
       return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
     }
@@ -580,7 +588,7 @@ async function enableDatabase(req, res) {
       return res.status(400).json({ error: 'Tipo de base de datos inválido. Debe ser POSTGRES o MYSQL.' })
     }
 
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) {
       return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
     }
@@ -664,7 +672,7 @@ async function executeSql(req, res) {
       return res.status(400).json({ error: 'El script SQL no puede estar vacío.' })
     }
 
-    const instance = await getClientInstance(req.user.id)
+    const instance = await getClientInstance(req)
     if (!instance) {
       return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
     }
@@ -728,7 +736,64 @@ async function executeSql(req, res) {
   }
 }
 
+// GET /api/client/instances
+async function getInstances(req, res) {
+  try {
+    const instances = await prisma.instance.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'asc' }
+    })
+    return res.status(200).json(instances)
+  } catch (error) {
+    console.error('[CLIENT INSTANCES] Error:', error)
+    return res.status(500).json({ error: 'Error al obtener instancias del cliente.' })
+  }
+}
+
+// POST /api/client/instances/:id/activate
+async function activateInstance(req, res) {
+  try {
+    const { id } = req.params
+    const { mode } = req.body // 'SSH' or 'AUTO_DEPLOY'
+
+    if (!mode || (mode !== 'SSH' && mode !== 'AUTO_DEPLOY')) {
+      return res.status(400).json({ error: 'Modo de despliegue inválido. Debe ser SSH o AUTO_DEPLOY.' })
+    }
+
+    const instance = await prisma.instance.findFirst({
+      where: { id, userId: req.user.id }
+    })
+
+    if (!instance) {
+      return res.status(404).json({ error: 'Instancia no encontrada.' })
+    }
+
+    if (instance.status !== 'PENDING') {
+      return res.status(400).json({ error: 'La instancia ya ha sido activada.' })
+    }
+
+    // Actualizar el modo
+    await prisma.instance.update({
+      where: { id },
+      data: { mode }
+    })
+
+    console.log(`[CLIENT ACTIVATE] Lanzando instancia ${instance.subdomain} en modo ${mode}...`)
+    const updated = await launchInstanceHelper(id)
+
+    return res.status(200).json({
+      message: 'Instancia activada y lanzada con éxito.',
+      instance: updated
+    })
+  } catch (error) {
+    console.error('[CLIENT ACTIVATE] Error:', error)
+    return res.status(500).json({ error: error.message || 'Error al activar la instancia.' })
+  }
+}
+
 module.exports = {
+  getInstances,
+  activateInstance,
   getInstance,
   launchInstance,
   startInstance,

@@ -8,6 +8,8 @@ const router = express.Router()
 router.use(auth)
 
 // Instancia del cliente
+router.get('/instances', clientController.getInstances)
+router.post('/instances/:id/activate', clientController.activateInstance)
 router.get('/instance', clientController.getInstance)
 router.post('/instance/launch', clientController.launchInstance)
 router.post('/instance/start', clientController.startInstance)

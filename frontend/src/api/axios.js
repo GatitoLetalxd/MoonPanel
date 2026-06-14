@@ -15,6 +15,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    const activeInstanceId = localStorage.getItem('activeInstanceId')
+    if (activeInstanceId) {
+      config.headers['x-instance-id'] = activeInstanceId
+    }
     return config
   },
   (error) => {

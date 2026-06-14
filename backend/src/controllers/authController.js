@@ -20,7 +20,7 @@ async function login(req, res) {
         ]
       },
       include: {
-        instance: true
+        instances: true
       }
     })
 
@@ -85,7 +85,7 @@ async function me(req, res) {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       include: {
-        instance: true
+        instances: true
       }
     })
 

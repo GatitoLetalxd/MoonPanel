@@ -18,6 +18,8 @@ export default function MyInstance() {
   const [showModeModal, setShowModeModal] = useState(false)
   const [pendingMode, setPendingMode] = useState('')
   const [modeLoading, setModeLoading] = useState(false)
+  const [activationMode, setActivationMode] = useState('SSH')
+  const [activationLoading, setActivationLoading] = useState(false)
 
   const loadData = async () => {
     try {
@@ -83,27 +85,27 @@ export default function MyInstance() {
     }
   }
 
-  const handleLaunchInstance = async () => {
-    setActionLoading(true)
+  const handleActivateInstance = async () => {
+    setActivationLoading(true)
     setData(prev => ({
       ...prev,
       instance: { ...prev.instance, status: 'CREATING' }
     }))
     try {
-      const res = await api.post('/api/client/instance/launch')
+      const res = await api.post(`/api/client/instances/${data.instance.id}/activate`, { mode: activationMode })
       setData(prev => ({
         ...prev,
         instance: res.data.instance
       }))
       await loadData()
     } catch (error) {
-      alert(`Error al lanzar la instancia: ${error.response?.data?.error || error.message}`)
+      alert(`Error al activar la instancia: ${error.response?.data?.error || error.message}`)
       setData(prev => ({
         ...prev,
         instance: { ...prev.instance, status: 'PENDING' }
       }))
     } finally {
-      setActionLoading(false)
+      setActivationLoading(false)
     }
   }
 
@@ -176,37 +178,78 @@ export default function MyInstance() {
   if (instance.status === 'PENDING' || instance.status === 'CREATING') {
     return (
       <div className="flex-1 p-8 bg-moon-bg min-h-screen flex items-center justify-center">
-        <div className="text-center max-w-lg bg-moon-surface border border-moon-border p-8 rounded-xl shadow-xl">
-          <div className="w-16 h-16 bg-moon-accent/15 text-moon-accent rounded-full border border-moon-accent/20 flex items-center justify-center mx-auto mb-6">
+        <div className="text-center max-w-2xl bg-moon-surface border border-moon-border p-8 rounded-xl shadow-xl space-y-6">
+          <div className="w-16 h-16 bg-moon-accent/15 text-moon-accent rounded-full border border-moon-accent/20 flex items-center justify-center mx-auto">
             <Server size={32} className={instance.status === 'CREATING' ? 'animate-pulse' : ''} />
           </div>
-          <h3 className="font-bold text-white text-xl mb-3">
-            {instance.status === 'CREATING' ? 'Inicializando Instancia...' : 'Tu Instancia está Pendiente'}
-          </h3>
-          <p className="text-sm text-moon-text/60 font-mono mb-6 leading-relaxed">
+          
+          <div className="space-y-2">
+            <h3 className="font-bold text-white text-xl">
+              {instance.status === 'CREATING' ? 'Inicializando Instancia...' : 'Tu Instancia está Reservada'}
+            </h3>
+            <p className="text-xs text-moon-text/50 font-mono">
+              Subdominio: <span className="text-white font-bold">{instance.subdomain}.moondev.online</span>
+            </p>
+          </div>
+
+          <p className="text-sm text-moon-text/70 leading-relaxed max-w-md mx-auto">
             {instance.status === 'CREATING' 
               ? 'Estamos levantando tu contenedor y configurando SSH, bases de datos y red. Esto tomará unos segundos.'
-              : 'Tu espacio en MoonVPS ha sido registrado. Aún no se ha creado tu contenedor físico. Pulsa el botón inferior para lanzar tu entorno al instante.'
+              : 'Tu espacio en MoonVPS está reservado. Selecciona tu método preferido de despliegue para inicializar tu contenedor físico:'
             }
           </p>
+
+          {instance.status !== 'CREATING' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto text-left">
+              <button
+                type="button"
+                onClick={() => setActivationMode('SSH')}
+                className={`p-5 rounded-xl border font-mono text-xs transition-all-custom flex flex-col gap-2.5 ${
+                  activationMode === 'SSH'
+                    ? 'bg-moon-accent/10 border-moon-accent text-white'
+                    : 'bg-moon-card border-moon-border hover:border-moon-text/30 text-moon-text/75 hover:text-white'
+                }`}
+              >
+                <span className="font-bold text-sm">Modo SSH Manual</span>
+                <span className="text-[11px] leading-relaxed opacity-70">
+                  Accede por terminal SSH a tu contenedor. Ideal si deseas instalar tus dependencias o configurar tu propio servidor a mano.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActivationMode('AUTO_DEPLOY')}
+                className={`p-5 rounded-xl border font-mono text-xs transition-all-custom flex flex-col gap-2.5 ${
+                  activationMode === 'AUTO_DEPLOY'
+                    ? 'bg-moon-accent/10 border-moon-accent text-white'
+                    : 'bg-moon-card border-moon-border hover:border-moon-text/30 text-moon-text/75 hover:text-white'
+                }`}
+              >
+                <span className="font-bold text-sm">Despliegue Automático</span>
+                <span className="text-[11px] leading-relaxed opacity-70">
+                  Conecta repositorios públicos de GitHub. MoonPanel detecta el entorno, inyecta variables .env y expone el proxy web.
+                </span>
+              </button>
+            </div>
+          )}
           
-          <button
-            onClick={handleLaunchInstance}
-            disabled={instance.status === 'CREATING' || actionLoading}
-            className="px-6 py-3 bg-moon-accent hover:bg-moon-hover text-white font-bold rounded-lg shadow-lg shadow-moon-accent/25 transition-all-custom flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
-          >
-            {(instance.status === 'CREATING' || actionLoading) ? (
-              <>
-                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Creando Contenedor...</span>
-              </>
+          <div className="pt-2">
+            {instance.status === 'CREATING' ? (
+              <div className="flex flex-col items-center gap-3">
+                <span className="w-8 h-8 border-3 border-moon-accent/30 border-t-moon-accent rounded-full animate-spin" />
+                <span className="text-xs font-mono text-moon-text/60">Configurando infraestructura web...</span>
+              </div>
             ) : (
-              <>
-                <Play size={16} />
-                <span>Lanzar mi instancia</span>
-              </>
+              <button
+                onClick={handleActivateInstance}
+                disabled={activationLoading}
+                className="px-6 py-3 bg-moon-accent hover:bg-moon-hover text-white font-bold rounded-lg shadow-lg shadow-moon-accent/25 transition-all-custom flex items-center justify-center gap-2 mx-auto disabled:opacity-50 text-xs uppercase tracking-wider font-mono"
+              >
+                <Play size={14} />
+                <span>Aprovisionar y Encender Servidor</span>
+              </button>
             )}
-          </button>
+          </div>
         </div>
       </div>
     )

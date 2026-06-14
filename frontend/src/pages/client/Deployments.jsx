@@ -296,6 +296,24 @@ export default function Deployments() {
     )
   }
 
+  if (instance.status === 'PENDING' || instance.status === 'CREATING') {
+    return (
+      <div className="flex-1 p-8 bg-moon-bg min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md bg-moon-surface border border-moon-border p-8 rounded-xl shadow-xl space-y-4">
+          <div className="w-12 h-12 bg-moon-accent/10 text-moon-accent rounded-full border border-moon-border flex items-center justify-center mx-auto">
+            <Server size={20} />
+          </div>
+          <h3 className="font-bold text-white text-lg">Instancia Reservada</h3>
+          <p className="text-xs text-moon-text/60 leading-relaxed font-mono">
+            Tu servidor está reservado y en espera de activación.
+            <br />
+            Para poder configurar bases de datos, variables de entorno y realizar despliegues automáticos, primero activa la instancia en la pestaña <span className="text-white font-bold">Mi Instancia</span>.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // Render limit notice if not in AUTO_DEPLOY mode
   if (instance.mode !== 'AUTO_DEPLOY') {
     return (

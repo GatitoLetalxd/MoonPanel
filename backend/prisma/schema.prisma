@@ -14,7 +14,7 @@ model User {
   password  String
   role      Role     @default(CLIENT)
   createdAt DateTime @default(now())
-  instance  Instance?
+  instances Instance[]
 }
 
 enum Role {
@@ -24,7 +24,7 @@ enum Role {
 
 model Instance {
   id              String       @id @default(uuid())
-  userId          String       @unique
+  userId          String
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   subdomain       String       @unique     // ej: "daniel" → daniel.moondev.online
   webPort         Int          @unique     // puerto web (3010, 3030, etc.)

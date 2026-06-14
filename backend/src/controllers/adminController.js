@@ -18,32 +18,32 @@ async function getNextAvailablePorts() {
   const usedSsh = new Set(instances.map(i => i.sshPort))
   const usedDb = new Set(instances.filter(i => i.dbPort).map(i => i.dbPort))
 
-  // Máximo 6 instancias
-  if (instances.length >= 6) {
-    throw new Error('Límite de 6 instancias alcanzado.')
+  // Máximo 99 instancias
+  if (instances.length >= 99) {
+    throw new Error('Límite de 99 instancias alcanzado.')
   }
 
-  // Buscar primer webPort libre en rango 3010-3129 (6 slots × 20 puertos)
+  // Buscar primer webPort libre
   let webPort = null
-  for (let p = 3010; p < 3130; p++) {
+  for (let p = 3010; p < 4500; p++) {
     if (!usedWeb.has(p)) {
       webPort = p
       break
     }
   }
 
-  // Buscar primer sshPort libre en rango 2210-2269
+  // Buscar primer sshPort libre
   let sshPort = null
-  for (let p = 2210; p < 2270; p++) {
+  for (let p = 2210; p < 3000; p++) {
     if (!usedSsh.has(p)) {
       sshPort = p
       break
     }
   }
 
-  // Buscar primer dbPort libre en rango 5440-5499
+  // Buscar primer dbPort libre
   let dbPort = null
-  for (let p = 5440; p < 5500; p++) {
+  for (let p = 5440; p < 6000; p++) {
     if (!usedDb.has(p)) {
       dbPort = p
       break
@@ -55,6 +55,23 @@ async function getNextAvailablePorts() {
   }
 
   return { webPort, sshPort, dbPort }
+}
+
+// Obtener siguiente subdominio vmiXX correlativo
+async function getNextAvailableSubdomain() {
+  const instances = await prisma.instance.findMany({
+    select: { subdomain: true }
+  })
+  const subdomains = new Set(instances.map(i => i.subdomain))
+
+  for (let i = 1; i <= 99; i++) {
+    const formattedNum = String(i).padStart(2, '0') // "01", "02", ...
+    const sub = `vmi${formattedNum}`
+    if (!subdomains.has(sub)) {
+      return sub
+    }
+  }
+  throw new Error('Límite de subdominios vmiXX alcanzado (1-99).')
 }
 
 // Helper para crear instancia en estado PENDING
@@ -194,7 +211,7 @@ async function getClients(req, res) {
         username: true,
         email: true,
         createdAt: true,
-        instance: {
+        instances: {
           select: {
             id: true,
             subdomain: true,
@@ -224,7 +241,7 @@ async function createClient(req, res) {
     const cleanUsername = username.trim().toLowerCase()
 
     if (!isValidSubdomain(cleanUsername)) {
-      return res.status(400).json({ error: 'El nombre de usuario debe contener solo minúsculas, números y guiones, y servirá como subdominio.' })
+      return res.status(400).json({ error: 'El nombre de usuario debe contener solo minúsculas, números y guiones.' })
     }
 
     // Verificar si el cliente ya existe
@@ -258,7 +275,8 @@ async function createClient(req, res) {
     console.log(`[ADMIN CLIENTS] Generando instancia automática para el usuario ${user.username}...`)
     let instance = null
     try {
-      instance = await createInstanceHelper(user.id, user.username, mode, database)
+      const subdomain = await getNextAvailableSubdomain()
+      instance = await createInstanceHelper(user.id, subdomain, mode || 'SSH', database || 'NONE')
     } catch (instError) {
       // Si falla la creación de la instancia, eliminamos el usuario para mantener consistencia
       await prisma.user.delete({ where: { id: user.id } })
@@ -266,7 +284,7 @@ async function createClient(req, res) {
     }
 
     return res.status(201).json({
-      message: 'Cliente creado con éxito junto a su instancia.',
+      message: 'Cliente creado con éxito junto a su instancia reservada.',
       client: {
         id: user.id,
         username: user.username,
@@ -287,24 +305,28 @@ async function deleteClient(req, res) {
 
     const client = await prisma.user.findUnique({
       where: { id },
-      include: { instance: true }
+      include: { instances: true }
     })
 
     if (!client) {
       return res.status(404).json({ error: 'Cliente no encontrado.' })
     }
 
-    // 1. Eliminar instancia si existe y fue lanzada
-    if (client.instance && client.instance.status !== 'PENDING') {
-      console.log(`[ADMIN CLIENTS] Eliminando recursos de la instancia para ${client.username}...`)
-      // Eliminar contenedor Docker y archivos host
-      await dockerService.deleteContainer(client.instance.containerName).catch(err => {
-        console.error(`Error al eliminar contenedor ${client.instance.containerName}:`, err.message)
-      })
-      // Eliminar vhost Nginx
-      await nginxService.removeVhost(client.instance.subdomain).catch(err => {
-        console.error(`Error al eliminar vhost ${client.instance.subdomain}:`, err.message)
-      })
+    // 1. Eliminar instancias si existen y fueron lanzadas
+    if (client.instances && client.instances.length > 0) {
+      for (const inst of client.instances) {
+        if (inst.status !== 'PENDING') {
+          console.log(`[ADMIN CLIENTS] Eliminando recursos de la instancia ${inst.subdomain}...`)
+          // Eliminar contenedor Docker y archivos host
+          await dockerService.deleteContainer(inst.containerName).catch(err => {
+            console.error(`Error al eliminar contenedor ${inst.containerName}:`, err.message)
+          })
+          // Eliminar vhost Nginx
+          await nginxService.removeVhost(inst.subdomain).catch(err => {
+            console.error(`Error al eliminar vhost ${inst.subdomain}:`, err.message)
+          })
+        }
+      }
     }
 
     // 2. Eliminar de la base de datos (con Cascade deletes en BD)
@@ -368,22 +390,31 @@ async function createInstance(req, res) {
   try {
     const { userId, subdomain, mode, database, ramLimit, cpuLimit, diskLimit } = req.body
 
-    if (!userId || !subdomain) {
-      return res.status(400).json({ error: 'userId y subdomain son obligatorios.' })
+    if (!userId) {
+      return res.status(400).json({ error: 'userId es obligatorio.' })
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { instance: true } })
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { instances: true } })
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado.' })
     }
 
-    if (user.instance) {
-      return res.status(400).json({ error: 'El usuario ya tiene una instancia activa.' })
+    if (user.instances && user.instances.length >= 10) {
+      return res.status(400).json({ error: 'El usuario ya cuenta con el límite de 10 instancias activas.' })
+    }
+
+    let finalSubdomain = subdomain ? subdomain.trim().toLowerCase() : ''
+    if (!finalSubdomain || finalSubdomain === 'auto') {
+      try {
+        finalSubdomain = await getNextAvailableSubdomain()
+      } catch (err) {
+        return res.status(500).json({ error: err.message })
+      }
     }
 
     const instance = await createInstanceHelper(
       userId,
-      subdomain.trim().toLowerCase(),
+      finalSubdomain,
       mode || 'SSH',
       database || 'NONE',
       ramLimit ? parseInt(ramLimit) : 512,
@@ -392,7 +423,7 @@ async function createInstance(req, res) {
     )
 
     return res.status(201).json({
-      message: 'Instancia creada exitosamente.',
+      message: 'Instancia creada exitosamente en estado reservado.',
       instance
     })
   } catch (error) {
