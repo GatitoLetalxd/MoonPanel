@@ -10,7 +10,8 @@ import {
   Key, 
   LogOut, 
   Terminal,
-  GitBranch
+  GitBranch,
+  Gamepad2
 } from 'lucide-react'
 
 export default function Sidebar({ onCloseMobile }) {
@@ -86,6 +87,15 @@ export default function Sidebar({ onCloseMobile }) {
               >
                 <UserPlus size={20} />
                 <span>Crear Cliente</span>
+              </NavLink>
+
+              <NavLink 
+                to="/admin/game-servers" 
+                className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                onClick={handleNavClick}
+              >
+                <Gamepad2 size={20} />
+                <span>Servidores de Juego</span>
               </NavLink>
             </>
           ) : (

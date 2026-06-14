@@ -9,6 +9,7 @@ import Dashboard from './pages/admin/Dashboard'
 import Clients from './pages/admin/Clients'
 import CreateClient from './pages/admin/CreateClient'
 import InstanceDetail from './pages/admin/InstanceDetail'
+import GameServers from './pages/admin/GameServers'
 
 // Client pages
 import MyInstance from './pages/client/MyInstance'
@@ -98,6 +99,7 @@ export default function App() {
           <Route path="/admin/clients" element={<AdminRoute><Clients /></AdminRoute>} />
           <Route path="/admin/create-client" element={<AdminRoute><CreateClient /></AdminRoute>} />
           <Route path="/admin/instances/:id" element={<AdminRoute><InstanceDetail /></AdminRoute>} />
+          <Route path="/admin/game-servers" element={<AdminRoute><GameServers /></AdminRoute>} />
 
           {/* Rutas del Cliente */}
           <Route path="/client/my-instance" element={<ClientRoute><MyInstance /></ClientRoute>} />
