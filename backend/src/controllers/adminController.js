@@ -232,7 +232,7 @@ async function getClients(req, res) {
 // POST /api/admin/clients
 async function createClient(req, res) {
   try {
-    const { username, email, password, mode, database } = req.body
+    const { username, email, password, mode, database, clientType } = req.body
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios.' })
@@ -270,6 +270,18 @@ async function createClient(req, res) {
         role: 'CLIENT'
       }
     })
+
+    if (clientType === 'game') {
+      return res.status(201).json({
+        message: 'Cliente de juego creado con éxito.',
+        client: {
+          id: user.id,
+          username: user.username,
+          email: user.email
+        },
+        instance: null
+      })
+    }
 
     // Generar instancia automáticamente para el cliente
     console.log(`[ADMIN CLIENTS] Generando instancia automática para el usuario ${user.username}...`)

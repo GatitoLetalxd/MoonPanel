@@ -25,7 +25,14 @@ export default function Login() {
       } else {
         const hostname = window.location.hostname
         const isGameSubdomain = hostname.startsWith('vh.') || hostname.startsWith('mc.')
-        navigate(isGameSubdomain ? '/game' : '/client/my-instance')
+        const hasVps = userData.instances && userData.instances.length > 0
+        const hasGame = userData.userGameAccess && userData.userGameAccess.length > 0
+        
+        if (isGameSubdomain || (!hasVps && hasGame)) {
+          navigate('/game')
+        } else {
+          navigate('/client/my-instance')
+        }
       }
     } catch (err) {
       console.error('[LOGIN ERROR]', err)

@@ -100,32 +100,47 @@ export default function Sidebar({ onCloseMobile }) {
             </>
           ) : (
             <>
-              <NavLink 
-                to="/client/my-instance" 
-                className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
-                onClick={handleNavClick}
-              >
-                <Server size={20} />
-                <span>Mi Instancia</span>
-              </NavLink>
+              {user?.instances && user.instances.length > 0 && (
+                <>
+                  <NavLink 
+                    to="/client/my-instance" 
+                    className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                    onClick={handleNavClick}
+                  >
+                    <Server size={20} />
+                    <span>Mi Instancia</span>
+                  </NavLink>
 
-              <NavLink 
-                to="/client/ssh-keys" 
-                className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
-                onClick={handleNavClick}
-              >
-                <Key size={20} />
-                <span>Llaves SSH</span>
-              </NavLink>
+                  <NavLink 
+                    to="/client/ssh-keys" 
+                    className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                    onClick={handleNavClick}
+                  >
+                    <Key size={20} />
+                    <span>Llaves SSH</span>
+                  </NavLink>
 
-              <NavLink 
-                to="/client/deployments" 
-                className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
-                onClick={handleNavClick}
-              >
-                <GitBranch size={20} />
-                <span>Despliegues</span>
-              </NavLink>
+                  <NavLink 
+                    to="/client/deployments" 
+                    className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                    onClick={handleNavClick}
+                  >
+                    <GitBranch size={20} />
+                    <span>Despliegues</span>
+                  </NavLink>
+                </>
+              )}
+
+              {user?.userGameAccess && user.userGameAccess.length > 0 && (
+                <NavLink 
+                  to="/game" 
+                  className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                  onClick={handleNavClick}
+                >
+                  <Gamepad2 size={20} />
+                  <span>Servidores de Juego</span>
+                </NavLink>
+              )}
             </>
           )}
         </nav>

@@ -83,7 +83,18 @@ function HomeRedirect() {
     return <Navigate to="/login" />
   }
 
-  return isAdmin ? <Navigate to="/admin/dashboard" /> : <Navigate to="/client/my-instance" />
+  if (isAdmin) {
+    return <Navigate to="/admin/dashboard" />
+  }
+
+  const hasVps = user.instances && user.instances.length > 0
+  const hasGame = user.userGameAccess && user.userGameAccess.length > 0
+
+  if (!hasVps && hasGame) {
+    return <Navigate to="/game" />
+  }
+
+  return <Navigate to="/client/my-instance" />
 }
 
 export default function App() {
