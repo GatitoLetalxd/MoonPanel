@@ -6,20 +6,24 @@
 
 ## Características Principales
 
-### 👑 Panel de Administración (ADMIN)
-*   **CRUD de Clientes**: Creación y gestión de usuarios clientes con aislamiento completo.
-*   **Aprovisionamiento de Instancias**: Creación automatizada de contenedores Docker dedicados para cada cliente al registrar la cuenta.
-*   **Asignación de Puertos Dinámica**: Asigna de forma automática rangos de puertos HTTP (3010-3129) y SSH (2210-2260) libres.
-*   **Control del Ciclo de Vida**: Encendido, apagado y reinicio en caliente de contenedores.
-*   **Límites de Recursos en Tiempo Real**: Escalado vertical instantáneo de CPU (shares) y memoria RAM. Incluye soporte para `MemorySwap` para evitar colisiones 409 al modificar límites en ejecución.
+### Panel de Administración (ADMIN)
+*   **Gestión de Clientes**: Creación y gestión de usuarios clientes con aislamiento completo.
+*   **Asignación de Múltiples Instancias**: Capacidad de asignar y vincular más de una instancia independiente (hasta un límite de 10) a una misma cuenta de cliente.
+*   **Reserva de Servidores**: Las nuevas instancias se crean inicialmente en estado reservado (PENDING) sin consumir recursos de CPU, RAM o disco del host hasta su activación.
+*   **Subdominios vmiXX Secuenciales**: Asignación automática del siguiente subdominio disponible correlativo (vmi01 a vmi99) bajo el comodín wildcard de Nginx.
+*   **Asignación de Puertos Dinámica**: Mapeo automático de rangos de puertos HTTP (3010-3129), SSH (2210-2260) y base de datos (5440-5499) libres.
+*   **Control del Ciclo de Vida**: Encendido, apagado, reinicio en caliente y lanzamiento forzado de contenedores desde la administración.
+*   **Límites de Recursos en Tiempo Real**: Configuración y escalado vertical instantáneo de CPU (shares) y memoria RAM con soporte para MemorySwap en ejecución.
 *   **Gestión de Disco Lógico**: Monitoreo y cálculo en tiempo real del almacenamiento consumido (`du -sm`) en el directorio del cliente (`/home/clients/{containerName}`).
 *   **Telemetría y Gráficos**: Polling periódico de estadísticas de uso (CPU, RAM, Disco) representado mediante gráficos de área interactivos con Recharts.
 
-### 👤 Portal del Cliente (CLIENT)
-*   **Gestión de su Instancia**: Encendido, apagado y reinicio de su propio servidor privado.
-*   **Acceso SSH**: Administración de claves SSH públicas autorizadas, inyectadas automáticamente al contenedor para su posterior conexión por terminal.
+### Portal del Cliente (CLIENT)
+*   **Selector de Instancias**: Alternancia sencilla y rápida entre múltiples instancias asignadas directamente desde la barra lateral.
+*   **Activación bajo Demanda**: Pantalla de configuración inicial para instancias en estado PENDING, permitiendo al cliente elegir el modo de despliegue preferido y aprovisionar su servidor físico en segundos.
+*   **Control del Servidor**: Acceso a encendido, apagado y reinicio de su instancia activa.
+*   **Acceso SSH**: Registro de claves SSH públicas autorizadas, inyectadas automáticamente al contenedor para su posterior conexión por terminal.
 *   **Flujo Secuencial de Despliegue (Pasos 1-4)**:
-    1.  **Paso 1: Gestión de Base de Datos**: Instalación instantánea de PostgreSQL (🐘) o MySQL (🐬) dentro del contenedor aislado. Cuenta con consola SQL integrada para ejecutar scripts `.sql` directamente y obtener feedback en tiempo real.
+    1.  **Paso 1: Gestión de Base de Datos**: Instalación instantánea de PostgreSQL o MySQL dentro del contenedor aislado. Cuenta con consola SQL integrada para ejecutar scripts `.sql` directamente y obtener feedback en tiempo real.
     2.  **Paso 2: Variables de Entorno (.env)**: Configuración segura de secretos y credenciales de entorno inyectados directamente a la aplicación.
     3.  **Paso 3: Desplegar Nuevo Repositorio**: Conexión con repositorios públicos de GitHub. Cuenta con auto-detección de entornos (NodeJS, React, Python, HTML estático) y autoconfiguración de proxies. Incluye un acordeón de guías de compatibilidad estructurada.
     4.  **Paso 4: Historial de Despliegues**: Listado de compilaciones previas y conexión vía Server-Sent Events (SSE) a la terminal de logs en tiempo real.
