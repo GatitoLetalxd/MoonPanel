@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Trash2, Plus, Search, ShieldAlert, X, AlertCircle } from 'lucide-react'
+import { Trash2, Plus, Search, ShieldAlert, X, AlertCircle, Server } from 'lucide-react'
 import api from '../../api/axios'
 
 export default function Clients() {
@@ -13,6 +13,68 @@ export default function Clients() {
   const [clientToDelete, setClientToDelete] = useState(null)
   const [confirmUsername, setConfirmUsername] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  // Modal de nueva instancia
+  const [showAddInstanceModal, setShowAddInstanceModal] = useState(false)
+  const [clientForInstance, setClientForInstance] = useState(null)
+  const [newInstanceLoading, setNewInstanceLoading] = useState(false)
+  const [newInstanceError, setNewInstanceError] = useState('')
+  const [newInstanceData, setNewInstanceData] = useState({
+    subdomain: 'auto',
+    ramLimit: 512,
+    cpuLimit: 0.5,
+    diskLimit: 2048,
+    mode: 'SSH',
+    database: 'NONE'
+  })
+
+  const openAddInstanceModal = (client) => {
+    setClientForInstance(client)
+    setNewInstanceError('')
+    setNewInstanceData({
+      subdomain: 'auto',
+      ramLimit: 512,
+      cpuLimit: 0.5,
+      diskLimit: 2048,
+      mode: 'SSH',
+      database: 'NONE'
+    })
+    setShowAddInstanceModal(true)
+  }
+
+  const closeAddInstanceModal = () => {
+    setShowAddInstanceModal(false)
+    setClientForInstance(null)
+  }
+
+  const handleAddInstance = async (e) => {
+    e.preventDefault()
+    if (!clientForInstance) return
+
+    setNewInstanceLoading(true)
+    setNewInstanceError('')
+
+    try {
+      await api.post('/api/admin/instances', {
+        userId: clientForInstance.id,
+        subdomain: newInstanceData.subdomain,
+        ramLimit: newInstanceData.ramLimit,
+        cpuLimit: newInstanceData.cpuLimit,
+        diskLimit: newInstanceData.diskLimit,
+        mode: newInstanceData.mode,
+        database: newInstanceData.database
+      })
+      
+      // Recargar clientes
+      await fetchClients()
+      closeAddInstanceModal()
+    } catch (err) {
+      console.error('[ADD INSTANCE ERROR] Error:', err)
+      setNewInstanceError(err.response?.data?.error || err.message || 'Error al asignar la instancia.')
+    } finally {
+      setNewInstanceLoading(false)
+    }
+  }
 
   const fetchClients = async () => {
     try {
@@ -175,13 +237,22 @@ export default function Clients() {
                       {new Date(client.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => openDeleteModal(client)}
-                        className="p-2 text-rose-400 hover:text-white hover:bg-rose-950/20 border border-transparent hover:border-rose-900/30 rounded-lg transition-all-custom"
-                        title="Eliminar Cliente"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openAddInstanceModal(client)}
+                          className="p-2 text-moon-accent hover:text-white hover:bg-moon-accent/20 border border-transparent hover:border-moon-accent/30 rounded-lg transition-all-custom"
+                          title="Asignar Nueva Instancia"
+                        >
+                          <Server size={16} />
+                        </button>
+                        <button
+                          onClick={() => openDeleteModal(client)}
+                          className="p-2 text-rose-400 hover:text-white hover:bg-rose-950/20 border border-transparent hover:border-rose-900/30 rounded-lg transition-all-custom"
+                          title="Eliminar Cliente"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -264,6 +335,174 @@ export default function Clients() {
                 )}
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Add Instance Modal */}
+      {showAddInstanceModal && clientForInstance && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="w-full max-w-lg bg-moon-surface border border-moon-border rounded-xl overflow-hidden shadow-2xl animate-scale-up">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-moon-border/60 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-moon-accent/10 text-moon-accent flex items-center justify-center shrink-0">
+                  <Server size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-wide">Asignar Nueva Instancia</h3>
+                  <p className="text-xs text-moon-text/50 font-mono mt-0.5">
+                    Cliente: <span className="text-white font-bold">{clientForInstance.username}</span>
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={closeAddInstanceModal}
+                className="text-moon-text/40 hover:text-white transition-all-custom"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddInstance}>
+              {/* Content */}
+              <div className="p-6 space-y-4">
+                {newInstanceError && (
+                  <div className="p-3 bg-rose-950/20 border border-rose-500/20 text-rose-400 text-xs rounded-lg flex items-center gap-2 font-mono">
+                    <AlertCircle size={16} />
+                    <span>{newInstanceError}</span>
+                  </div>
+                )}
+
+                {/* Subdomain field */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider">
+                    Subdominio
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newInstanceData.subdomain}
+                    onChange={(e) => setNewInstanceData(prev => ({ ...prev, subdomain: e.target.value }))}
+                    placeholder="vmiXX o 'auto' para autogenerar"
+                    className="w-full px-4 py-2.5 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent focus:outline-none text-white rounded-lg font-mono text-sm transition-all-custom"
+                  />
+                  <p className="text-[10px] text-moon-text/40 font-mono">
+                    Usa <span className="text-moon-accent font-bold">auto</span> para asignar el siguiente correlativo secuencial vmiXX.
+                  </p>
+                </div>
+
+                {/* Resource Limits */}
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider">
+                      RAM
+                    </label>
+                    <select
+                      value={newInstanceData.ramLimit}
+                      onChange={(e) => setNewInstanceData(prev => ({ ...prev, ramLimit: parseInt(e.target.value) }))}
+                      className="w-full px-3 py-2 bg-moon-card border border-moon-border text-white text-xs font-mono rounded-lg focus:outline-none focus:border-moon-accent"
+                    >
+                      <option value={256}>256 MB</option>
+                      <option value={512}>512 MB</option>
+                      <option value={1024}>1024 MB</option>
+                      <option value={2048}>2048 MB</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider">
+                      vCPU
+                    </label>
+                    <select
+                      value={newInstanceData.cpuLimit}
+                      onChange={(e) => setNewInstanceData(prev => ({ ...prev, cpuLimit: parseFloat(e.target.value) }))}
+                      className="w-full px-3 py-2 bg-moon-card border border-moon-border text-white text-xs font-mono rounded-lg focus:outline-none focus:border-moon-accent"
+                    >
+                      <option value={0.25}>0.25 Cores</option>
+                      <option value={0.5}>0.50 Cores</option>
+                      <option value={1.0}>1.00 Cores</option>
+                      <option value={2.0}>2.00 Cores</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider">
+                      Disco
+                    </label>
+                    <select
+                      value={newInstanceData.diskLimit}
+                      onChange={(e) => setNewInstanceData(prev => ({ ...prev, diskLimit: parseInt(e.target.value) }))}
+                      className="w-full px-3 py-2 bg-moon-card border border-moon-border text-white text-xs font-mono rounded-lg focus:outline-none focus:border-moon-accent"
+                    >
+                      <option value={1024}>1 GB</option>
+                      <option value={2048}>2 GB</option>
+                      <option value={5120}>5 GB</option>
+                      <option value={10240}>10 GB</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Default Mode & Database */}
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider">
+                      Modo por Defecto
+                    </label>
+                    <select
+                      value={newInstanceData.mode}
+                      onChange={(e) => setNewInstanceData(prev => ({ ...prev, mode: e.target.value }))}
+                      className="w-full px-3 py-2.5 bg-moon-card border border-moon-border text-white text-xs font-mono rounded-lg focus:outline-none focus:border-moon-accent"
+                    >
+                      <option value="SSH">Acceso SSH</option>
+                      <option value="AUTO_DEPLOY">Despliegue Git</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider">
+                      Base de Datos
+                    </label>
+                    <select
+                      value={newInstanceData.database}
+                      onChange={(e) => setNewInstanceData(prev => ({ ...prev, database: e.target.value }))}
+                      className="w-full px-3 py-2.5 bg-moon-card border border-moon-border text-white text-xs font-mono rounded-lg focus:outline-none focus:border-moon-accent"
+                    >
+                      <option value="NONE">Ninguna</option>
+                      <option value="POSTGRES">PostgreSQL</option>
+                      <option value="MYSQL">MySQL</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="p-6 bg-moon-card border-t border-moon-border/60 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeAddInstanceModal}
+                  className="px-4 py-2 bg-transparent hover:bg-moon-border/40 text-moon-text hover:text-white border border-moon-border rounded-lg text-sm font-semibold transition-all-custom"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={newInstanceLoading}
+                  className="px-4 py-2 bg-moon-accent hover:bg-moon-hover disabled:opacity-40 text-white rounded-lg text-sm font-semibold shadow-lg shadow-moon-accent/20 transition-all-custom flex items-center gap-1.5"
+                >
+                  {newInstanceLoading ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Server size={16} />
+                      <span>Reservar Instancia</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
 
           </div>
         </div>
