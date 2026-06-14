@@ -192,10 +192,10 @@ export default function CreateClient() {
               {loading ? (
                 <div className="flex items-center gap-2">
                   <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Aprovisionando contenedor Docker e instalando SSH...</span>
+                  <span>Creando cliente y reservando recursos...</span>
                 </div>
               ) : (
-                'Confirmar y Desplegar Instancia'
+                'Confirmar'
               )}
             </button>
           </form>
@@ -203,11 +203,11 @@ export default function CreateClient() {
           <div className="space-y-6 animate-scale-up">
             <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm rounded-lg flex items-center gap-2 font-mono">
               <Server size={18} className="animate-bounce" />
-              <span>¡Instancia aprovisionada con éxito!</span>
+              <span>¡Cliente creado e instancia reservada con éxito!</span>
             </div>
 
             <div className="space-y-4">
-              <h3 className="font-bold text-white text-base">Detalles del Contenedor de {provisionedData.client?.username}</h3>
+              <h3 className="font-bold text-white text-base">Detalles de la Instancia de {provisionedData.client?.username}</h3>
               
               <div className="bg-moon-card border border-moon-border rounded-lg p-5 space-y-3.5 text-sm font-mono">
                 <div className="flex justify-between border-b border-moon-border/40 pb-2">
