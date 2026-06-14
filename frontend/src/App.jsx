@@ -14,6 +14,7 @@ import InstanceDetail from './pages/admin/InstanceDetail'
 import MyInstance from './pages/client/MyInstance'
 import SSHKeys from './pages/client/SSHKeys'
 import Deployments from './pages/client/Deployments'
+import GameDashboard from './pages/GameDashboard'
 
 // Componente para proteger rutas que requieren estar autenticado y rol ADMIN
 function AdminRoute({ children }) {
@@ -102,6 +103,13 @@ export default function App() {
           <Route path="/client/my-instance" element={<ClientRoute><MyInstance /></ClientRoute>} />
           <Route path="/client/ssh-keys" element={<ClientRoute><SSHKeys /></ClientRoute>} />
           <Route path="/client/deployments" element={<ClientRoute><Deployments /></ClientRoute>} />
+
+          {/* Rutas de Juego */}
+          <Route path="/game" element={
+            <ClientRoute>
+              <GameDashboard />
+            </ClientRoute>
+          } />
 
           {/* Redirección home y comodín */}
           <Route path="/" element={<HomeRedirect />} />

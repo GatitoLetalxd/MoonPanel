@@ -15,6 +15,7 @@ model User {
   role      Role     @default(CLIENT)
   createdAt DateTime @default(now())
   instances Instance[]
+  userGameAccess UserGameAccess[]
 }
 
 enum Role {
@@ -104,5 +105,33 @@ model EnvVar {
   key        String
   value      String
   createdAt  DateTime @default(now())
+}
+
+model GameInstance {
+  id            Int      @id @default(autoincrement())
+  name          String
+  gameType      String   // "valheim" | "minecraft"
+  containerId   String   // nombre o ID del contenedor Docker pre-creado
+  containerName String   // nombre legible para mostrar en UI
+  queryPort     Int      // puerto UDP para player query
+  status        String   @default("pending")
+  // estados: "pending" | "offline" | "starting" | "online" | "stopping"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userAccess    UserGameAccess[]
+}
+
+model UserGameAccess {
+  id             Int          @id @default(autoincrement())
+  userId         String
+  gameInstanceId Int
+  role           String       @default("player") // "owner" | "player"
+  createdAt      DateTime     @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameInstance   GameInstance @relation(fields: [gameInstanceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gameInstanceId])
 }
 

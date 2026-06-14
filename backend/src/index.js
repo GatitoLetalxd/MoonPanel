@@ -9,6 +9,9 @@ const dockerService = require('./services/dockerService')
 const authRouter = require('./routes/auth')
 const adminRouter = require('./routes/admin')
 const clientRouter = require('./routes/client')
+const gameRouter = require('./routes/game.routes')
+const gameAdminRouter = require('./routes/gameAdmin.routes')
+const { gameContextMiddleware } = require('./middleware/gameContext')
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -38,10 +41,14 @@ app.use(cors({
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+app.use(gameContextMiddleware)
+
 // Rutas base
 app.use('/api/auth', authRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/client', clientRouter)
+app.use('/api/game', gameRouter)
+app.use('/api/admin/game', gameAdminRouter)
 
 // Ruta de estado del panel
 app.get('/api/health', (req, res) => {
@@ -76,6 +83,8 @@ async function createDefaultAdmin() {
   }
 }
 
+const { startGameScheduler } = require('./services/gameScheduler.js')
+
 async function startServer() {
   try {
     // 1. Conectar a la base de datos
@@ -92,6 +101,9 @@ async function startServer() {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[SYS] Servidor MoonPanel iniciado en el puerto ${PORT} (Entorno: ${process.env.NODE_ENV})`)
     })
+
+    // 5. Iniciar programador de servidores de juego
+    startGameScheduler()
   } catch (error) {
     console.error('[SYS] Error crítico durante la inicialización del servidor:', error)
     process.exit(1)
