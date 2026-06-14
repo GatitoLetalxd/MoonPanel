@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client')
+const prisma = require('../lib/prisma')
 const dockerService = require('../services/dockerService')
 const { launchInstanceHelper } = require('./adminController')
-
-const prisma = new PrismaClient()
 
 // Helper para obtener la instancia del cliente logueado
 async function getClientInstance(userId) {
@@ -402,6 +400,17 @@ async function triggerDeploy(req, res) {
       return res.status(400).json({ error: 'Debes lanzar primero tu instancia para poder realizar despliegues.' })
     }
 
+    // Verificar que no haya un despliegue activo en curso (BUG-06)
+    const activeDeployment = await prisma.deployment.findFirst({
+      where: {
+        instanceId: instance.id,
+        status: { in: ['PENDING', 'CLONING', 'INSTALLING', 'BUILDING', 'STARTING'] }
+      }
+    })
+    if (activeDeployment) {
+      return res.status(409).json({ error: 'Ya existe un despliegue en curso. Espera a que termine antes de iniciar otro.' })
+    }
+
     const deployment = await prisma.deployment.create({
       data: {
         instanceId: instance.id,
@@ -429,6 +438,7 @@ async function triggerDeploy(req, res) {
 
 // GET /api/client/deploy/logs/:deploymentId (SSE Stream)
 async function getDeployLogs(req, res) {
+  let keepAliveInterval = null
   try {
     const { deploymentId } = req.params
     const deployment = await prisma.deployment.findUnique({
@@ -443,6 +453,7 @@ async function getDeployLogs(req, res) {
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
+    res.setHeader('X-Accel-Buffering', 'no') // Evita que Nginx almacene en buffer el SSE
     res.flushHeaders()
 
     // Send history logs if any
@@ -459,10 +470,17 @@ async function getDeployLogs(req, res) {
     }
 
     const { deployEmitter } = require('../services/deployService')
+    
+    // Heartbeat interval to prevent Nginx proxy read timeouts and browser ERR_INCOMPLETE_CHUNKED_ENCODING
+    keepAliveInterval = setInterval(() => {
+      res.write(': keepalive\n\n')
+    }, 15000)
+
     const logListener = (data) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`)
       if (data.type === 'status' && (data.status === 'SUCCESS' || data.status === 'FAILED')) {
         res.write(`data: ${JSON.stringify({ type: 'end' })}\n\n`)
+        clearInterval(keepAliveInterval)
         res.end()
       }
     }
@@ -470,10 +488,12 @@ async function getDeployLogs(req, res) {
     deployEmitter.on(`logs:${deploymentId}`, logListener)
 
     req.on('close', () => {
+      if (keepAliveInterval) clearInterval(keepAliveInterval)
       deployEmitter.off(`logs:${deploymentId}`, logListener)
     })
   } catch (error) {
     console.error('[CLIENT DEPLOY LOGS SSE] Error:', error)
+    if (keepAliveInterval) clearInterval(keepAliveInterval)
     res.write(`data: ${JSON.stringify({ type: 'error', message: 'Error interno en la transmisión de logs.' })}\n\n`)
     res.end()
   }
@@ -552,6 +572,162 @@ async function updateInstanceMode(req, res) {
   }
 }
 
+// POST /api/client/instance/database
+async function enableDatabase(req, res) {
+  try {
+    const { database } = req.body
+    if (!database || (database !== 'POSTGRES' && database !== 'MYSQL')) {
+      return res.status(400).json({ error: 'Tipo de base de datos inválido. Debe ser POSTGRES o MYSQL.' })
+    }
+
+    const instance = await getClientInstance(req.user.id)
+    if (!instance) {
+      return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
+    }
+
+    if (instance.status === 'PENDING') {
+      return res.status(400).json({ error: 'Debes lanzar primero tu instancia antes de poder instalar una base de datos.' })
+    }
+
+    if (instance.database !== 'NONE') {
+      return res.status(400).json({ error: 'La instancia ya tiene una base de datos activa.' })
+    }
+
+    // 1. Obtener un puerto de base de datos disponible en el rango 5440-5499
+    const instances = await prisma.instance.findMany({ select: { dbPort: true } })
+    const usedDb = new Set(instances.filter(i => i.dbPort).map(i => i.dbPort))
+    let dbPort = null
+    for (let p = 5440; p < 5500; p++) {
+      if (!usedDb.has(p)) {
+        dbPort = p
+        break
+      }
+    }
+
+    if (!dbPort) {
+      return res.status(400).json({ error: 'No hay puertos de base de datos disponibles en el rango asignado.' })
+    }
+
+    // 2. Generar contraseña para la base de datos
+    const generator = require('generate-password')
+    const dbPassword = generator.generate({
+      length: 16,
+      numbers: true,
+      uppercase: true,
+      symbols: false
+    })
+
+    // 3. Actualizar la instancia en la base de datos
+    const updatedInstance = await prisma.instance.update({
+      where: { id: instance.id },
+      data: {
+        database,
+        dbPort,
+        dbPassword
+      }
+    })
+
+    // 4. Recrear el contenedor Docker de forma segura
+    console.log(`[CLIENT DATABASE] Recreando contenedor ${instance.containerName} para habilitar ${database}...`)
+    
+    // Detener y remover contenedor viejo (sin borrar la carpeta en el host!)
+    await dockerService.deleteContainer(instance.containerName, false)
+
+    // Crear e iniciar el nuevo contenedor con la base de datos habilitada
+    await dockerService.createContainer({
+      containerName: instance.containerName,
+      webPort: instance.webPort,
+      sshPort: instance.sshPort,
+      dbPort: dbPort,
+      ramLimit: instance.ramLimit,
+      cpuLimit: instance.cpuLimit,
+      sshPassword: instance.sshPassword,
+      database: database,
+      dbPassword: dbPassword
+    })
+
+    return res.status(200).json({
+      message: `Base de datos ${database} instalada y configurada exitosamente.`,
+      instance: updatedInstance
+    })
+  } catch (error) {
+    console.error('[CLIENT DATABASE ENABLE] Error:', error)
+    return res.status(500).json({ error: 'Error al instalar la base de datos en la instancia.' })
+  }
+}
+
+// POST /api/client/instance/database/execute-sql
+async function executeSql(req, res) {
+  try {
+    const { sql } = req.body
+    if (!sql || !sql.trim()) {
+      return res.status(400).json({ error: 'El script SQL no puede estar vacío.' })
+    }
+
+    const instance = await getClientInstance(req.user.id)
+    if (!instance) {
+      return res.status(404).json({ error: 'No tienes ninguna instancia asignada.' })
+    }
+
+    if (instance.status !== 'RUNNING') {
+      return res.status(400).json({ error: 'La instancia debe estar activa para poder ejecutar scripts SQL.' })
+    }
+
+    if (instance.database === 'NONE') {
+      return res.status(400).json({ error: 'No tienes ninguna base de datos activa.' })
+    }
+
+    const fs = require('fs')
+    const path = require('path')
+
+    // 1. Guardar temporalmente el SQL en el host para que el container acceda a él en /app/
+    const hostDir = `/home/clients/${instance.containerName}`
+    const tempFileName = `temp_query_${Date.now()}.sql`
+    const hostFilePath = path.join(hostDir, tempFileName)
+    const containerFilePath = `/app/${tempFileName}`
+
+    fs.writeFileSync(hostFilePath, sql)
+
+    // 2. Construir comando según el tipo de base de datos
+    let cmd = ''
+    if (instance.database === 'POSTGRES') {
+      cmd = `PGPASSWORD="${instance.dbPassword}" psql -U postgres -d appdb -h 127.0.0.1 -f "${containerFilePath}" 2>&1`
+    } else if (instance.database === 'MYSQL') {
+      cmd = `mysql -u root -p"${instance.dbPassword}" -D appdb < "${containerFilePath}" 2>&1`
+    }
+
+    // 3. Ejecutar comando
+    let output = ''
+    let success = true
+    try {
+      output = await dockerService.execInContainer(instance.containerName, cmd)
+    } catch (execError) {
+      success = false
+      output = execError.message
+    } finally {
+      // 4. Limpiar archivo temporal en el host
+      if (fs.existsSync(hostFilePath)) {
+        fs.unlinkSync(hostFilePath)
+      }
+    }
+
+    if (!success) {
+      return res.status(400).json({
+        error: 'El script SQL se ejecutó con errores.',
+        output
+      })
+    }
+
+    return res.status(200).json({
+      message: 'Script SQL ejecutado con éxito.',
+      output
+    })
+  } catch (error) {
+    console.error('[CLIENT SQL EXECUTE] Error:', error)
+    return res.status(500).json({ error: 'Error interno al ejecutar el script SQL.' })
+  }
+}
+
 module.exports = {
   getInstance,
   launchInstance,
@@ -569,5 +745,7 @@ module.exports = {
   triggerDeploy,
   getDeployLogs,
   deleteInstance,
-  updateInstanceMode
+  updateInstanceMode,
+  enableDatabase,
+  executeSql
 }

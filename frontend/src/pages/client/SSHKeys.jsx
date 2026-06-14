@@ -78,7 +78,7 @@ export default function SSHKeys() {
   }
 
   return (
-    <div className="flex-1 p-8 bg-moon-bg min-h-screen">
+    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen">
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-white tracking-wide">Mis Llaves SSH</h2>

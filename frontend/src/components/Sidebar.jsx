@@ -12,13 +12,18 @@ import {
   GitBranch
 } from 'lucide-react'
 
-export default function Sidebar() {
+export default function Sidebar({ onCloseMobile }) {
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
+    if (onCloseMobile) onCloseMobile()
     await logout()
     navigate('/login')
+  }
+
+  const handleNavClick = () => {
+    if (onCloseMobile) onCloseMobile()
   }
 
   const activeStyle = "flex items-center gap-3 px-4 py-3 bg-moon-accent text-white font-medium rounded-lg shadow-lg shadow-moon-accent/20 transition-all-custom"
@@ -53,6 +58,7 @@ export default function Sidebar() {
               <NavLink 
                 to="/admin/dashboard" 
                 className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                onClick={handleNavClick}
               >
                 <LayoutDashboard size={20} />
                 <span>Dashboard</span>
@@ -61,6 +67,7 @@ export default function Sidebar() {
               <NavLink 
                 to="/admin/clients" 
                 className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                onClick={handleNavClick}
               >
                 <Users size={20} />
                 <span>Clientes</span>
@@ -69,6 +76,7 @@ export default function Sidebar() {
               <NavLink 
                 to="/admin/create-client" 
                 className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                onClick={handleNavClick}
               >
                 <UserPlus size={20} />
                 <span>Crear Cliente</span>
@@ -79,6 +87,7 @@ export default function Sidebar() {
               <NavLink 
                 to="/client/my-instance" 
                 className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                onClick={handleNavClick}
               >
                 <Server size={20} />
                 <span>Mi Instancia</span>
@@ -87,6 +96,7 @@ export default function Sidebar() {
               <NavLink 
                 to="/client/ssh-keys" 
                 className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                onClick={handleNavClick}
               >
                 <Key size={20} />
                 <span>Llaves SSH</span>
@@ -95,6 +105,7 @@ export default function Sidebar() {
               <NavLink 
                 to="/client/deployments" 
                 className={({ isActive }) => isActive ? activeStyle : inactiveStyle}
+                onClick={handleNavClick}
               >
                 <GitBranch size={20} />
                 <span>Despliegues</span>

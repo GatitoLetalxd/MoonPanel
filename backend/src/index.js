@@ -1,7 +1,7 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
-const { PrismaClient } = require('@prisma/client')
+const prisma = require('./lib/prisma')
 const bcrypt = require('bcryptjs')
 const dockerService = require('./services/dockerService')
 
@@ -10,7 +10,6 @@ const authRouter = require('./routes/auth')
 const adminRouter = require('./routes/admin')
 const clientRouter = require('./routes/client')
 
-const prisma = new PrismaClient()
 const app = express()
 const PORT = process.env.PORT || 4000
 
@@ -20,9 +19,12 @@ app.use((req, res, next) => {
   req.cookies = {}
   if (cookieStr) {
     cookieStr.split(';').forEach(cookie => {
-      const parts = cookie.split('=')
-      if (parts.length === 2) {
-        req.cookies[parts[0].trim()] = parts[1].trim()
+      // Dividir solo en el primer '=' para soportar valores con '=' (ej: tokens Base64)
+      const eqIndex = cookie.indexOf('=')
+      if (eqIndex > 0) {
+        const key = cookie.substring(0, eqIndex).trim()
+        const value = cookie.substring(eqIndex + 1).trim()
+        req.cookies[key] = value
       }
     })
   }

@@ -79,9 +79,9 @@ export default function Clients() {
   }
 
   return (
-    <div className="flex-1 p-8 bg-moon-bg min-h-screen relative">
+    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen relative">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center mb-8">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-wide">Gestión de Clientes</h2>
           <p className="text-sm text-moon-text/50 font-mono">Listar y remover cuentas de clientes y sus entornos Docker</p>

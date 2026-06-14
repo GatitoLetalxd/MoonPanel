@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Server, GitBranch, Rocket, Plus, Trash2, Copy, Check, Eye, EyeOff, Terminal, X, AlertCircle, Play, Key, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
+import { Server, GitBranch, Rocket, Plus, Trash2, Copy, Check, Eye, EyeOff, Terminal, X, AlertCircle, Play, Key, ChevronDown, ChevronUp, BookOpen, Database, Upload, Lightbulb } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge'
 import api from '../../api/axios'
 
@@ -23,6 +23,13 @@ export default function Deployments() {
   const [showModeModal, setShowModeModal] = useState(false)
   const [modeChangeLoading, setModeChangeLoading] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
+
+  // Database fields
+  const [dbLoading, setDbLoading] = useState(false)
+  const [sqlText, setSqlText] = useState('')
+  const [sqlLoading, setSqlLoading] = useState(false)
+  const [sqlOutput, setSqlOutput] = useState('')
+  const [showDbPassword, setShowDbPassword] = useState(false)
 
   // SSE Logs Terminal fields
   const [activeDeploymentId, setActiveDeploymentId] = useState(null)
@@ -217,6 +224,51 @@ export default function Deployments() {
     setActiveProjType('')
   }
 
+  // Database operations
+  const handleInstallDatabase = async (type) => {
+    const confirmInstall = confirm(`¿Estás seguro de que deseas instalar ${type === 'POSTGRES' ? 'PostgreSQL' : 'MySQL'}? Esto recreará el contenedor y tu aplicación en ejecución se detendrá. Tus archivos no se borrarán, pero deberás redesplegar la aplicación.`);
+    if (!confirmInstall) return;
+
+    setDbLoading(true)
+    try {
+      const response = await api.post('/api/client/instance/database', { database: type })
+      setInstance(response.data.instance)
+      alert(response.data.message)
+      window.location.reload()
+    } catch (err) {
+      alert(`Error al instalar base de datos: ${err.response?.data?.error || err.message}`)
+    } finally {
+      setDbLoading(false)
+    }
+  }
+
+  const handleExecuteSql = async (e) => {
+    e.preventDefault()
+    if (!sqlText.trim()) return
+    setSqlLoading(true)
+    setSqlOutput('Ejecutando script SQL en la base de datos...')
+    try {
+      const response = await api.post('/api/client/instance/database/execute-sql', { sql: sqlText })
+      setSqlOutput(response.data.output || 'Script ejecutado exitosamente con código de retorno 0.')
+    } catch (err) {
+      setSqlOutput(err.response?.data?.output || err.response?.data?.error || err.message)
+    } finally {
+      setSqlLoading(false)
+    }
+  }
+
+  const handleSqlFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setSqlText(event.target.result)
+    }
+    reader.readAsText(file)
+    // reset input
+    e.target.value = ''
+  }
+
   if (loading) {
     return (
       <div className="flex-1 min-h-screen bg-moon-bg flex items-center justify-center">
@@ -341,27 +393,300 @@ export default function Deployments() {
   }
 
   return (
-    <div className="flex-1 p-8 bg-moon-bg min-h-screen relative">
+    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen relative">
       
       {/* Title */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-white tracking-wide">Repositorio y Despliegues</h2>
-        <p className="text-sm text-moon-text/50 font-mono mt-0.5">
-          Configura tus variables de entorno, importa repositorios públicos de GitHub y compila de forma automatizada.
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row gap-4 justify-between sm:items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-wide">Flujo de Despliegue y Base de Datos</h2>
+          <p className="text-sm text-moon-text/50 font-mono mt-0.5">
+            Sigue los pasos secuenciales para aprovisionar tu base de datos, inyectar variables de entorno y desplegar tu código.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left column (Config & Deploy history) */}
-        <div className="lg:col-span-2 space-y-8">
+        {/* Left column (Step 1: Database & Step 2: EnvVars) */}
+        <div className="lg:col-span-1 space-y-8 order-1">
           
-          {/* GitHub configuration form */}
+          {/* Database card (Paso 1) */}
+          <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-6">
+            <h3 className="font-bold text-white text-base flex items-center gap-2">
+              <Database size={18} className="text-moon-accent" />
+              <span>Paso 1: Gestión de Base de Datos</span>
+            </h3>
+
+            {dbLoading ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-3">
+                <span className="w-8 h-8 border-3 border-moon-accent/30 border-t-moon-accent rounded-full animate-spin" />
+                <span className="text-xs font-mono text-moon-text/60 text-center">Configurando base de datos e iniciando servicios...</span>
+              </div>
+            ) : instance.database === 'NONE' ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-moon-card rounded-lg border border-moon-border/60 text-xs font-mono text-moon-text/60 leading-relaxed">
+                  <p className="font-bold text-white mb-1">Inicializa tu base de datos</p>
+                  Habilita un motor de base de datos (PostgreSQL o MySQL) que correrá directamente dentro de tu contenedor aislado.
+                  <span className="text-amber-400 font-bold block mt-2">Importante:</span> Al instalar un motor se recreará el contenedor. Tus archivos de código no se borrarán, pero deberás redesplegar la aplicación en el Paso 3.
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleInstallDatabase('POSTGRES')}
+                    className="p-4 bg-moon-card border border-moon-border hover:border-moon-accent/40 rounded-lg flex flex-col items-center justify-center gap-2 hover:text-white transition-all-custom"
+                  >
+                    <Database size={24} className="text-blue-400" />
+                    <span className="text-xs font-mono font-bold">PostgreSQL</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInstallDatabase('MYSQL')}
+                    className="p-4 bg-moon-card border border-moon-border hover:border-moon-accent/40 rounded-lg flex flex-col items-center justify-center gap-2 hover:text-white transition-all-custom"
+                  >
+                    <Database size={24} className="text-amber-400" />
+                    <span className="text-xs font-mono font-bold">MySQL</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 font-mono text-xs">
+                <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-[11px] text-emerald-400 leading-relaxed space-y-1.5">
+                  <p className="font-bold text-white flex items-center gap-1.5"><Check size={14} className="text-emerald-400" /> Base de datos activa y en línea</p>
+                  <p>Para conectar tu aplicación utiliza los siguientes hosts internos desde tu código:</p>
+                  <p className="bg-black/60 p-2 rounded select-all text-white border border-moon-border/40 font-bold break-all">
+                    {instance.database === 'POSTGRES' 
+                      ? 'postgresql://postgres:CONTRASEÑA@127.0.0.1:5432/appdb' 
+                      : 'mysql://root:CONTRASEÑA@127.0.0.1:3306/appdb'}
+                  </p>
+                  <p className="text-[10px] text-moon-text/50">
+                    Sustituye <strong className="text-white">CONTRASEÑA</strong> por el valor cifrado abajo. Para conexiones externas, usa el host externo `moondev.online` y tu puerto asignado.
+                  </p>
+                </div>
+
+                {/* DB Info */}
+                <div className="bg-moon-card border border-moon-border rounded-lg p-4 space-y-3">
+                  <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                    <span className="text-moon-text/50">Motor:</span>
+                    <span className="text-moon-accent font-bold">{instance.database}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                    <span className="text-moon-text/50">Base de Datos:</span>
+                    <span className="text-white font-semibold">appdb</span>
+                  </div>
+                  <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                    <span className="text-moon-text/50">Usuario:</span>
+                    <span className="text-white font-semibold">{instance.database === 'POSTGRES' ? 'postgres' : 'root'}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                    <span className="text-moon-text/50">Puerto Externo:</span>
+                    <span className="text-white font-semibold">{instance.dbPort}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-moon-border/40 pb-2">
+                    <span className="text-moon-text/50">Host Externo:</span>
+                    <span className="text-white font-semibold">moondev.online</span>
+                  </div>
+                  <div className="pt-1.5">
+                    <span className="text-moon-text/50 block mb-1">Contraseña:</span>
+                    <div className="flex items-center justify-between bg-moon-bg border border-moon-border px-3 py-2 rounded-lg">
+                      <span className="text-white select-all font-bold tracking-wider break-all">
+                        {showDbPassword ? instance.dbPassword : '••••••••••••'}
+                      </span>
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setShowDbPassword(!showDbPassword)}
+                          className="p-1 hover:bg-moon-border rounded text-moon-text/60 hover:text-white"
+                          title="Mostrar contraseña"
+                        >
+                          {showDbPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(instance.dbPassword, 'dbPassword')}
+                          className="p-1 hover:bg-moon-border rounded text-moon-text/60 hover:text-white"
+                          title="Copiar contraseña"
+                        >
+                          {copiedKey === 'dbPassword' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SQL execution interface */}
+                <form onSubmit={handleExecuteSql} className="space-y-3 border-t border-moon-border/40 pt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-moon-text/60 uppercase">Ejecutar Script SQL</label>
+                    <label className="flex items-center gap-1 text-[10px] text-moon-accent hover:text-moon-hover cursor-pointer font-bold">
+                      <Upload size={12} />
+                      <span>Cargar .sql</span>
+                      <input
+                        type="file"
+                        accept=".sql"
+                        onChange={handleSqlFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <textarea
+                    rows={5}
+                    value={sqlText}
+                    onChange={(e) => setSqlText(e.target.value)}
+                    placeholder={`-- Ejemplo SQL:\nCREATE TABLE usuarios (\n  id SERIAL PRIMARY KEY,\n  nombre VARCHAR(50)\n);`}
+                    className="w-full px-3 py-2 bg-moon-card border border-moon-border rounded-lg text-white placeholder-moon-text/25 focus:outline-none focus:border-moon-accent font-mono text-xs resize-y"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sqlLoading || !sqlText.trim()}
+                    className="w-full py-2 bg-moon-accent hover:bg-moon-hover disabled:opacity-50 text-white font-bold rounded-lg shadow-md transition-all-custom flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider"
+                  >
+                    {sqlLoading ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Play size={12} />
+                        <span>Ejecutar SQL</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* SQL output console */}
+                {sqlOutput && (
+                  <div className="space-y-1.5 border-t border-moon-border/40 pt-4">
+                    <span className="text-[10px] font-bold text-moon-text/60 uppercase">Resultado de Ejecución</span>
+                    <pre className="w-full p-3 bg-black border border-moon-border/80 rounded-lg text-[10px] text-slate-300 font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap max-h-48">
+                      {sqlOutput}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* EnvVars manager (Paso 2) */}
+          <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-6">
+            <h3 className="font-bold text-white text-base flex items-center gap-2">
+              <Key size={18} className="text-moon-accent" />
+              <span>Paso 2: Variables de Entorno (.env)</span>
+            </h3>
+
+            <div className="p-4 bg-moon-card rounded-lg border border-moon-border/60 text-xs font-mono text-moon-text/60 leading-relaxed">
+              <p className="font-bold text-white mb-1">Inyecta parámetros a tu servidor</p>
+              Registra las credenciales de conexión obtenidas del Paso 1 (como <code className="text-white">DB_PASSWORD</code>, <code className="text-white">DB_HOST</code>) antes del despliegue.
+              <span className="text-moon-accent font-bold block mt-1.5">Tip:</span> Al guardar o borrar variables se actualizará tu archivo <code className="text-white">.env</code> de manera segura, pero tendrás que redesplegar en el Paso 3 para aplicar los cambios.
+            </div>
+
+            {/* Form to add environment variable */}
+            <form onSubmit={handleAddEnvVar} className="space-y-3 font-mono text-xs">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-moon-text/60 uppercase">Nombre de Variable (Key)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="EJ: DATABASE_URL"
+                  value={newKey}
+                  onChange={(e) => setNewKey(e.target.value)}
+                  className="w-full px-3 py-2 bg-moon-card border border-moon-border rounded-lg text-white placeholder-moon-text/20 focus:outline-none focus:border-moon-accent font-bold uppercase"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-moon-text/60 uppercase">Valor (Value)</label>
+                <input
+                  type="text"
+                  placeholder="Valor secreto"
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                  className="w-full px-3 py-2 bg-moon-card border border-moon-border rounded-lg text-white placeholder-moon-text/20 focus:outline-none focus:border-moon-accent"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={envLoading || !newKey}
+                className="w-full py-2 bg-moon-accent hover:bg-moon-hover disabled:opacity-50 text-white font-bold rounded-lg shadow-md transition-all-custom flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider"
+              >
+                {envLoading ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Plus size={14} />
+                    <span>Guardar Variable</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="pt-4 border-t border-moon-border/40 space-y-3">
+              <span className="text-[10px] font-bold text-moon-text/50 uppercase tracking-wider block font-mono">
+                Variables Activas ({envVars.length})
+              </span>
+              
+              {envVars.length === 0 ? (
+                <p className="text-xs text-moon-text/40 italic font-mono p-4 border border-dashed border-moon-border rounded-lg bg-moon-card/30 text-center">
+                  Sin variables registradas.
+                </p>
+              ) : (
+                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                  {envVars.map((v) => {
+                    const isVisible = showValues[v.id]
+                    return (
+                      <div key={v.id} className="p-3 bg-moon-card border border-moon-border rounded-lg font-mono text-xs flex items-center justify-between gap-3 group">
+                        <div className="overflow-hidden space-y-1">
+                          <p className="font-bold text-white truncate">{v.key}</p>
+                          <p className="text-[10px] text-emerald-400 select-all truncate">
+                            {isVisible ? v.value : '••••••••••••'}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => toggleShowValue(v.id)}
+                            className="p-1.5 hover:bg-moon-border hover:text-white rounded transition-colors text-moon-text/60"
+                            title={isVisible ? 'Ocultar' : 'Mostrar'}
+                          >
+                            {isVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(v.value, v.id)}
+                            className="p-1.5 hover:bg-moon-border hover:text-white rounded transition-colors text-moon-text/60"
+                            title="Copiar valor"
+                          >
+                            {copiedKey === v.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEnvVar(v.id)}
+                            className="p-1.5 hover:bg-red-950/20 hover:text-red-400 rounded transition-colors text-rose-500/80"
+                            title="Eliminar variable"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Right column (Step 3: Deploy configuration & History) */}
+        <div className="lg:col-span-2 space-y-8 order-2">
+          
+          {/* GitHub configuration form (Paso 3) */}
           <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-6">
             <h3 className="font-bold text-white text-base flex items-center gap-2">
               <Rocket size={18} className="text-moon-accent" />
-              <span>Desplegar Nuevo Repositorio</span>
+              <span>Paso 3: Desplegar Nuevo Repositorio</span>
             </h3>
+
+            <div className="p-4 bg-moon-card rounded-lg border border-moon-border/60 text-xs font-mono text-moon-text/60 leading-relaxed">
+              <p className="font-bold text-white mb-1">Compila y ejecuta tu código fuente</p>
+              Ingresa el enlace de tu repositorio de GitHub público y su rama de producción. MoonPanel clonará el código de forma limpia, aplicará las variables del Paso 2, configurará los servidores proxy web y arrancará tus servicios con PM2.
+            </div>
 
             {/* Guía de Estructura de Repositorios (Collapsible) */}
             <div className="border border-moon-border/60 rounded-lg bg-moon-card/45 overflow-hidden transition-all-custom">
@@ -385,7 +710,7 @@ export default function Deployments() {
                     
                     {/* Card: Frontend */}
                     <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
-                      <span className="font-bold text-white flex items-center gap-1">💻 Frontend (React, Vite, Astro, etc.)</span>
+                      <span className="font-bold text-white flex items-center gap-1">Frontend (React, Vite, Astro, etc.)</span>
                       <p className="text-[11px] text-moon-text/70">
                         • Requiere <code className="text-moon-accent font-semibold">package.json</code> con script <code className="text-white">"build"</code>.<br />
                         • Debe compilar en carpeta <code className="text-white">dist</code> o <code className="text-white">build</code> en la raíz.
@@ -394,7 +719,7 @@ export default function Deployments() {
 
                     {/* Card: Node.js */}
                     <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
-                      <span className="font-bold text-white flex items-center gap-1">🟢 Node.js Backend (Express, Nest, etc.)</span>
+                      <span className="font-bold text-white flex items-center gap-1">Node.js Backend (Express, Nest, etc.)</span>
                       <p className="text-[11px] text-moon-text/70">
                         • Requiere <code className="text-moon-accent font-semibold">package.json</code> en la raíz.<br />
                         • Debe escuchar en <code className="text-white">process.env.PORT</code> (inyectado como 5000).<br />
@@ -404,7 +729,7 @@ export default function Deployments() {
 
                     {/* Card: Python */}
                     <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
-                      <span className="font-bold text-white flex items-center gap-1">🐍 Python (FastAPI, Flask, Django)</span>
+                      <span className="font-bold text-white flex items-center gap-1">Python (FastAPI, Flask, Django)</span>
                       <p className="text-[11px] text-moon-text/70">
                         • Requiere <code className="text-moon-accent font-semibold">requirements.txt</code> en la raíz.<br />
                         • Debe escuchar en el puerto <code className="text-white">5000</code>.<br />
@@ -414,7 +739,7 @@ export default function Deployments() {
 
                     {/* Card: Estático */}
                     <div className="p-3 bg-moon-surface border border-moon-border/40 rounded-lg space-y-1.5">
-                      <span className="font-bold text-white flex items-center gap-1">📄 HTML / CSS / JS Estático</span>
+                      <span className="font-bold text-white flex items-center gap-1">HTML / CSS / JS Estático</span>
                       <p className="text-[11px] text-moon-text/70">
                         • Solo requiere un archivo <code className="text-moon-accent font-semibold">index.html</code> en la raíz.<br />
                         • No necesita dependencias ni compilación.
@@ -424,17 +749,17 @@ export default function Deployments() {
                   </div>
 
                   {/* Advertencias Generales */}
-                  <div className="pt-3 border-t border-moon-border/40 space-y-2 text-[11px] text-amber-400">
-                    <p className="flex items-start gap-1">
-                      <span className="shrink-0 mt-0.5">💡</span>
-                      <span className="text-moon-text/85"><strong className="text-white">Regla de oro:</strong> Todos los archivos de configuración y arranque deben estar en la raíz de tu repositorio (no dentro de subcarpetas).</span>
+                  <div className="pt-3 border-t border-moon-border/40 space-y-2.5 text-[11px] text-amber-400">
+                    <p className="flex items-start gap-1.5">
+                      <span className="shrink-0 mt-0.5"><Lightbulb size={12} className="text-amber-400" /></span>
+                      <span className="text-moon-text/85"><strong className="text-white">Regla de oro:</strong> Todos los archivos de arranque deben estar en la raíz de tu repositorio (o especificar subdirectorio de forma manual).</span>
                     </p>
-                    <p className="flex items-start gap-1">
-                      <span className="shrink-0 mt-0.5">⚠️</span>
-                      <span>Tu aplicación debe correr/compilar en el puerto interno 3000 (para frontend) o escuchar en el puerto 5000 (para backend).</span>
+                    <p className="flex items-start gap-1.5">
+                      <span className="shrink-0 mt-0.5"><AlertCircle size={12} className="text-amber-400" /></span>
+                      <span>Tu aplicación debe correr en el puerto interno 3000 (para frontend) o escuchar en el puerto 5000 (para backend).</span>
                     </p>
-                    <p className="flex items-start gap-1">
-                      <span className="shrink-0 mt-0.5">⚠️</span>
+                    <p className="flex items-start gap-1.5">
+                      <span className="shrink-0 mt-0.5"><AlertCircle size={12} className="text-amber-400" /></span>
                       <span>Únicamente se soportan repositorios de GitHub <strong>públicos</strong>.</span>
                     </p>
                   </div>
@@ -489,7 +814,7 @@ export default function Deployments() {
             </form>
           </div>
 
-          {/* Deployment History list */}
+          {/* Deployment History list (Paso 4) */}
           <div className="bg-moon-surface border border-moon-border p-6 rounded-xl">
             <h3 className="font-bold text-white text-base mb-6 flex items-center gap-2">
               <Terminal size={18} className="text-moon-accent" />
@@ -505,33 +830,34 @@ export default function Deployments() {
                 <table className="w-full text-left font-mono text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-moon-border/60 text-moon-text/40 uppercase tracking-wider text-[10px]">
-                      <th className="pb-3 font-semibold">Proyecto / Rama</th>
-                      <th className="pb-3 font-semibold">Tipo</th>
-                      <th className="pb-3 font-semibold">Fecha</th>
-                      <th className="pb-3 font-semibold">Estado</th>
-                      <th className="pb-3 font-semibold text-right">Consola</th>
+                      <th className="pb-3 font-semibold pr-2">Proyecto / Rama</th>
+                      <th className="pb-3 font-semibold px-2">Tipo</th>
+                      <th className="pb-3 font-semibold px-2">Fecha</th>
+                      <th className="pb-3 font-semibold px-2">Estado</th>
+                      <th className="pb-3 font-semibold text-right pl-2">Consola</th>
                     </tr>
                   </thead>
                   <tbody>
                     {deployments.map((deploy) => (
                       <tr key={deploy.id} className="border-b border-moon-border/40 hover:bg-moon-card/30 transition-colors">
-                        <td className="py-4">
-                          <p className="font-bold text-white max-w-xs truncate">{deploy.repoUrl.replace('https://github.com/', '')}</p>
+                        <td className="py-4 pr-2">
+                          <p className="font-bold text-white max-w-[150px] sm:max-w-xs truncate">{deploy.repoUrl.replace('https://github.com/', '')}</p>
                           <span className="text-[10px] text-moon-text/40 flex items-center gap-1 mt-0.5">
                             <GitBranch size={10} /> {deploy.branch}
                           </span>
                         </td>
-                        <td className="py-4 uppercase text-moon-text/75">{deploy.projectType}</td>
-                        <td className="py-4 text-moon-text/50">
+                        <td className="py-4 px-2 uppercase text-moon-text/75">{deploy.projectType}</td>
+                        <td className="py-4 px-2 text-moon-text/50 whitespace-nowrap">
                           {new Date(deploy.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </td>
-                        <td className="py-4">
+                        <td className="py-4 px-2">
                           <StatusBadge status={deploy.status} />
                         </td>
-                        <td className="py-4 text-right">
+                        <td className="py-4 text-right pl-2">
                           <button
+                            type="button"
                             onClick={() => handleViewLogs(deploy.id)}
-                            className="px-3 py-1.5 bg-moon-card hover:bg-moon-border border border-moon-border hover:border-moon-accent/40 text-white rounded font-bold transition-all-custom"
+                            className="px-3 py-1.5 bg-moon-card hover:bg-moon-border border border-moon-border hover:border-moon-accent/40 text-white rounded font-bold transition-all-custom whitespace-nowrap"
                           >
                             Ver logs
                           </button>
@@ -542,106 +868,6 @@ export default function Deployments() {
                 </table>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Right column (EnvVars manager) */}
-        <div>
-          <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-6">
-            <h3 className="font-bold text-white text-base flex items-center gap-2">
-              <Key size={18} className="text-moon-accent" />
-              <span>Variables de Entorno (.env)</span>
-            </h3>
-
-            {/* Form to add environment variable */}
-            <form onSubmit={handleAddEnvVar} className="space-y-3 font-mono text-xs">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-moon-text/60 uppercase">Nombre de Variable (Key)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="EJ: DATABASE_URL"
-                  value={newKey}
-                  onChange={(e) => setNewKey(e.target.value)}
-                  className="w-full px-3 py-2 bg-moon-card border border-moon-border rounded-lg text-white placeholder-moon-text/20 focus:outline-none focus:border-moon-accent font-bold"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-moon-text/60 uppercase">Valor (Value)</label>
-                <input
-                  type="text"
-                  placeholder="Valor secreto"
-                  value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
-                  className="w-full px-3 py-2 bg-moon-card border border-moon-border rounded-lg text-white placeholder-moon-text/20 focus:outline-none focus:border-moon-accent"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={envLoading || !newKey}
-                className="w-full py-2 bg-moon-accent hover:bg-moon-hover disabled:opacity-50 text-white font-bold rounded-lg shadow-md transition-all-custom flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider"
-              >
-                {envLoading ? (
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Plus size={14} />
-                    <span>Guardar Variable</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="pt-4 border-t border-moon-border/40 space-y-3">
-              <span className="text-[10px] font-bold text-moon-text/50 uppercase tracking-wider block font-mono">
-                Variables Activas ({envVars.length})
-              </span>
-              
-              {envVars.length === 0 ? (
-                <p className="text-xs text-moon-text/40 italic font-mono p-4 border border-dashed border-moon-border rounded-lg bg-moon-card/30 text-center">
-                  Sin variables registradas.
-                </p>
-              ) : (
-                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                  {envVars.map((v) => {
-                    const isVisible = showValues[v.id]
-                    return (
-                      <div key={v.id} className="p-3 bg-moon-card border border-moon-border rounded-lg font-mono text-xs flex items-center justify-between gap-3 group">
-                        <div className="overflow-hidden space-y-1">
-                          <p className="font-bold text-white truncate">{v.key}</p>
-                          <p className="text-[10px] text-emerald-400 select-all truncate">
-                            {isVisible ? v.value : '••••••••••••'}
-                          </p>
-                        </div>
-                        <div className="flex gap-1 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => toggleShowValue(v.id)}
-                            className="p-1.5 hover:bg-moon-border hover:text-white rounded transition-colors text-moon-text/60"
-                            title={isVisible ? 'Ocultar' : 'Mostrar'}
-                          >
-                            {isVisible ? <EyeOff size={13} /> : <Eye size={13} />}
-                          </button>
-                          <button
-                            onClick={() => handleCopy(v.value, v.id)}
-                            className="p-1.5 hover:bg-moon-border hover:text-white rounded transition-colors text-moon-text/60"
-                            title="Copiar valor"
-                          >
-                            {copiedKey === v.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteEnvVar(v.id)}
-                            className="p-1.5 hover:bg-red-950/20 hover:text-red-400 rounded transition-colors text-rose-500/80"
-                            title="Eliminar variable"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
           </div>
         </div>
 

@@ -215,10 +215,10 @@ export default function MyInstance() {
   const fullDomain = `${instance.subdomain}.moondev.online`
 
   return (
-    <div className="flex-1 p-8 bg-moon-bg min-h-screen">
+    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen">
       
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center mb-8">
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold text-white tracking-wide">Mi Servidor Web</h2>
@@ -228,7 +228,7 @@ export default function MyInstance() {
         </div>
         
         {/* Container action buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <button
             onClick={() => handleAction('start')}
             disabled={actionLoading || instance.status === 'RUNNING'}
@@ -432,7 +432,7 @@ export default function MyInstance() {
           </div>
 
           {/* Database Info Card */}
-          {instance.database !== 'NONE' && (
+          {instance.database !== 'NONE' && instance.mode === 'AUTO_DEPLOY' && (
             <div className="bg-moon-surface border border-moon-border p-6 rounded-xl space-y-4">
               <h3 className="font-bold text-white text-base flex items-center gap-2">
                 <Server size={18} className="text-moon-accent" />
@@ -545,7 +545,7 @@ export default function MyInstance() {
             </h3>
             <div className="bg-rose-500/5 border border-rose-500/20 rounded-lg p-5 font-mono text-xs text-moon-text/85 space-y-4">
               <p className="text-[10px] text-rose-400 leading-relaxed font-semibold">
-                ⚠️ ATENCIÓN: Al eliminar tu instancia se detendrá y borrará permanentemente tu contenedor Docker, base de datos y archivos. Los datos no se podrán recuperar.
+                ATENCIÓN: Al eliminar tu instancia se detendrá y borrará permanentemente tu contenedor Docker, base de datos y archivos. Los datos no se podrán recuperar.
               </p>
               <button
                 onClick={() => {

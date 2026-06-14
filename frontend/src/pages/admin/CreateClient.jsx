@@ -85,7 +85,7 @@ export default function CreateClient() {
   }
 
   return (
-    <div className="flex-1 p-8 bg-moon-bg min-h-screen">
+    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen">
       {/* Back button and header */}
       <div className="mb-8 flex items-center gap-4">
         <Link 
@@ -100,7 +100,7 @@ export default function CreateClient() {
         </div>
       </div>
 
-      <div className="max-w-2xl bg-moon-surface border border-moon-border p-8 rounded-xl shadow-xl">
+      <div className="max-w-2xl bg-moon-surface border border-moon-border p-4 sm:p-8 rounded-xl shadow-xl">
         {!provisionedData ? (
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (

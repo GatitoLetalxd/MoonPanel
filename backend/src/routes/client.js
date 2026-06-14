@@ -16,6 +16,8 @@ router.post('/instance/restart', clientController.restartInstance)
 router.get('/instance/stats', clientController.getInstanceStats)
 router.delete('/instance', clientController.deleteInstance)
 router.patch('/instance/mode', clientController.updateInstanceMode)
+router.post('/instance/database', clientController.enableDatabase)
+router.post('/instance/database/execute-sql', clientController.executeSql)
 
 // Llaves SSH
 router.get('/ssh-keys', clientController.getSSHKeys)

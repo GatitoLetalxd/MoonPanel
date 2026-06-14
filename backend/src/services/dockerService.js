@@ -77,9 +77,11 @@ async function createContainer({ containerName, webPort, sshPort, dbPort, ramLim
 
   await container.start()
 
-  // Setear contraseña root
+  // Setear contraseña root de forma segura usando variable de entorno
+  // en vez de interpolar directamente en el comando (BUG-02)
   const execObj = await container.exec({
-    Cmd: ['bash', '-c', `echo "root:${sshPassword}" | chpasswd`],
+    Cmd: ['bash', '-c', 'echo "root:$SSH_PASS" | chpasswd'],
+    Env: [`SSH_PASS=${sshPassword}`],
     AttachStdout: true,
     AttachStderr: true
   })
@@ -132,16 +134,28 @@ async function execInContainer(containerName, command) {
   }
 }
 
-// Iniciar container
+// Iniciar container (idempotente: no falla si ya está corriendo)
 async function startContainer(containerName) {
-  const container = docker.getContainer(containerName)
-  await container.start()
+  try {
+    const container = docker.getContainer(containerName)
+    await container.start()
+  } catch (error) {
+    // Docker API retorna 304 si el contenedor ya está corriendo
+    if (error.statusCode === 304) return
+    throw error
+  }
 }
 
-// Detener container
+// Detener container (idempotente: no falla si ya está detenido)
 async function stopContainer(containerName) {
-  const container = docker.getContainer(containerName)
-  await container.stop()
+  try {
+    const container = docker.getContainer(containerName)
+    await container.stop()
+  } catch (error) {
+    // Docker API retorna 304 si el contenedor ya está detenido
+    if (error.statusCode === 304) return
+    throw error
+  }
 }
 
 // Reiniciar container
@@ -151,17 +165,19 @@ async function restartContainer(containerName) {
 }
 
 // Eliminar container
-async function deleteContainer(containerName) {
+async function deleteContainer(containerName, deleteHostDir = true) {
   try {
     const container = docker.getContainer(containerName)
     // Detener primero si está corriendo (forzar parada si es necesario)
     await container.stop().catch(() => {})
-    await container.remove()
+    await container.remove().catch(() => {})
 
     // Eliminar el directorio del cliente
-    const hostDir = `/home/clients/${containerName}`
-    if (fs.existsSync(hostDir)) {
-      fs.rmSync(hostDir, { recursive: true, force: true })
+    if (deleteHostDir) {
+      const hostDir = `/home/clients/${containerName}`
+      if (fs.existsSync(hostDir)) {
+        fs.rmSync(hostDir, { recursive: true, force: true })
+      }
     }
   } catch (error) {
     console.error(`[DOCKER] Error al eliminar contenedor ${containerName}:`, error)
@@ -233,11 +249,14 @@ async function getStats(containerName) {
   }
 }
 
-// Agregar SSH key dentro del container
+// Agregar SSH key dentro del container de forma segura (BUG-01: sin interpolación de shell)
 async function addSSHKeyToContainer(containerName, publicKey) {
   const container = docker.getContainer(containerName)
+  // Codificar la llave en base64 para evitar inyección de comandos
+  const b64Key = Buffer.from(publicKey).toString('base64')
   const execObj = await container.exec({
-    Cmd: ['bash', '-c', `mkdir -p /root/.ssh && echo "${publicKey}" >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && chmod 700 /root/.ssh`],
+    Cmd: ['bash', '-c', `mkdir -p /root/.ssh && echo "$SSH_KEY_B64" | base64 -d >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && chmod 700 /root/.ssh`],
+    Env: [`SSH_KEY_B64=${b64Key}`],
     AttachStdout: true,
     AttachStderr: true
   })
@@ -249,12 +268,13 @@ async function addSSHKeyToContainer(containerName, publicKey) {
   })
 }
 
-// Eliminar SSH key dentro del container
+// Eliminar SSH key dentro del container (BUG-18: verifica existencia del archivo)
 async function removeSSHKeyFromContainer(containerName, publicKey) {
   const container = docker.getContainer(containerName)
-  const escaped = publicKey.replace(/'/g, "'\\''")
+  const b64Key = Buffer.from(publicKey).toString('base64')
   const execObj = await container.exec({
-    Cmd: ['bash', '-c', `grep -v '${escaped}' /root/.ssh/authorized_keys > /tmp/ak_tmp && mv /tmp/ak_tmp /root/.ssh/authorized_keys`],
+    Cmd: ['bash', '-c', 'if [ -f /root/.ssh/authorized_keys ]; then grep -vF "$(echo "$SSH_KEY_B64" | base64 -d)" /root/.ssh/authorized_keys > /tmp/ak_tmp && mv /tmp/ak_tmp /root/.ssh/authorized_keys; fi'],
+    Env: [`SSH_KEY_B64=${b64Key}`],
     AttachStdout: true,
     AttachStderr: true
   })

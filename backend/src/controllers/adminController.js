@@ -1,42 +1,56 @@
-const { PrismaClient } = require('@prisma/client')
+const prisma = require('../lib/prisma')
 const bcrypt = require('bcryptjs')
 const generator = require('generate-password')
 const dockerService = require('../services/dockerService')
 const nginxService = require('../services/nginxService')
 
-const prisma = new PrismaClient()
-
 // Validar que el subdominio solo contenga minúsculas, números y guiones
 function isValidSubdomain(subdomain) {
-  const regex = /^[a-z0-9-]+$/
+  // No permite guiones al inicio o final (DNS-inválido, rompe Nginx/Certbot)
+  const regex = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
   return regex.test(subdomain) && subdomain.length >= 3 && subdomain.length <= 30
 }
 
 // Obtener puertos disponibles de forma automática
 async function getNextAvailablePorts() {
   const instances = await prisma.instance.findMany({ select: { webPort: true, sshPort: true, dbPort: true } })
-  const usedWeb = instances.map(i => i.webPort)
-  const usedSsh = instances.map(i => i.sshPort)
+  const usedWeb = new Set(instances.map(i => i.webPort))
+  const usedSsh = new Set(instances.map(i => i.sshPort))
+  const usedDb = new Set(instances.filter(i => i.dbPort).map(i => i.dbPort))
 
-  // Índice de cliente (0-5, máximo 6 clientes)
-  const clientIndex = instances.length
-  if (clientIndex >= 6) {
+  // Máximo 6 instancias
+  if (instances.length >= 6) {
     throw new Error('Límite de 6 instancias alcanzado.')
   }
 
-  const webBase = 3010 + (clientIndex * 20)
-  const sshPort = 2210 + (clientIndex * 10)
-  const dbPort = 5440 + (clientIndex * 10)
-
+  // Buscar primer webPort libre en rango 3010-3129 (6 slots × 20 puertos)
   let webPort = null
-  for (let p = webBase; p < webBase + 20; p++) {
-    if (!usedWeb.includes(p)) {
+  for (let p = 3010; p < 3130; p++) {
+    if (!usedWeb.has(p)) {
       webPort = p
       break
     }
   }
 
-  if (!webPort || usedSsh.includes(sshPort)) {
+  // Buscar primer sshPort libre en rango 2210-2269
+  let sshPort = null
+  for (let p = 2210; p < 2270; p++) {
+    if (!usedSsh.has(p)) {
+      sshPort = p
+      break
+    }
+  }
+
+  // Buscar primer dbPort libre en rango 5440-5499
+  let dbPort = null
+  for (let p = 5440; p < 5500; p++) {
+    if (!usedDb.has(p)) {
+      dbPort = p
+      break
+    }
+  }
+
+  if (!webPort || !sshPort) {
     throw new Error('No hay puertos disponibles en el rango asignado.')
   }
 

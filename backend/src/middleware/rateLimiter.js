@@ -1,5 +1,19 @@
 const rateLimitStore = new Map()
 
+// Limpieza periódica de IPs antiguas para evitar memory leak (BUG-03)
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, requests] of rateLimitStore.entries()) {
+    // Filtrar solo las peticiones dentro de la ventana más reciente (1 minuto)
+    const valid = requests.filter(time => now - time < 60 * 1000)
+    if (valid.length === 0) {
+      rateLimitStore.delete(ip)
+    } else {
+      rateLimitStore.set(ip, valid)
+    }
+  }
+}, 5 * 60 * 1000) // Cada 5 minutos
+
 module.exports = (maxRequests, windowMs) => {
   return (req, res, next) => {
     const ip = req.ip

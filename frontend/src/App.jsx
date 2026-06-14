@@ -1,7 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import Sidebar from './components/Sidebar'
+import Layout from './components/Layout'
 import Login from './pages/Login'
 
 // Admin pages
@@ -36,12 +36,7 @@ function AdminRoute({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-moon-bg">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <Layout>{children}</Layout>
   )
 }
 
@@ -66,12 +61,7 @@ function ClientRoute({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-moon-bg">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <Layout>{children}</Layout>
   )
 }
 

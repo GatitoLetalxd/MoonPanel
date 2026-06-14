@@ -259,10 +259,10 @@ export default function InstanceDetail() {
   const fullDomain = `${instance.subdomain}.moondev.online`
 
   return (
-    <div className="flex-1 p-8 bg-moon-bg min-h-screen relative">
+    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen relative">
       
       {/* Header and Back Button */}
-      <div className="mb-8 flex justify-between items-start gap-4">
+      <div className="mb-8 flex flex-col md:flex-row gap-4 md:justify-between md:items-start">
         <div className="flex items-center gap-4">
           <Link 
             to="/admin/dashboard"
@@ -282,7 +282,7 @@ export default function InstanceDetail() {
         </div>
 
         {/* Quick controls */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {instance.status === 'PENDING' && (
             <button
               onClick={handleForceLaunch}
