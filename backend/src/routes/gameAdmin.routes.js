@@ -124,22 +124,36 @@ router.delete('/instances/:id', authMiddleware, adminMiddleware, async (req, res
 })
 
 // ── POST /api/admin/game/instances/:id/access ───────────────────────────────
-// Dar acceso a un usuario a una instancia
+// Dar o modificar acceso de un usuario a una instancia (Upsert)
 router.post('/instances/:id/access', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { userId, role = 'player' } = req.body
+    const gameInstanceId = parseInt(req.params.id)
+
+    // Buscar si ya existe
+    const existing = await prisma.userGameAccess.findUnique({
+      where: {
+        userId_gameInstanceId: { userId, gameInstanceId }
+      }
+    })
+
+    if (existing) {
+      const updated = await prisma.userGameAccess.update({
+        where: { id: existing.id },
+        data: { role }
+      })
+      return res.status(200).json({ message: 'Rol de acceso actualizado con éxito.', access: updated })
+    }
+
     const access = await prisma.userGameAccess.create({
       data: {
-        userId: userId, // userId es String UUID
-        gameInstanceId: parseInt(req.params.id),
+        userId,
+        gameInstanceId,
         role
       }
     })
-    res.status(201).json(access)
+    res.status(201).json({ message: 'Acceso concedido con éxito.', access })
   } catch (err) {
-    if (err.code === 'P2002') {
-      return res.status(409).json({ error: 'Este usuario ya tiene acceso a esta instancia' })
-    }
     res.status(500).json({ error: err.message })
   }
 })

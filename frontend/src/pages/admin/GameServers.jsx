@@ -123,21 +123,14 @@ export default function GameServers() {
         userId: selectedUserId,
         role: selectedUserRole
       })
-      await fetchData()
-      // Actualizar modal state si sigue abierto
-      const updatedServer = servers.find(s => s.id === selectedServer.id)
-      if (updatedServer) {
-        setSelectedServer({
-          ...updatedServer,
-          userAccess: [
-            ...(selectedServer.userAccess || []),
-            {
-              userId: selectedUserId,
-              role: selectedUserRole,
-              user: clients.find(c => c.id === selectedUserId)
-            }
-          ]
-        })
+      
+      // Consultar y actualizar listado completo de servidores
+      const serversRes = await api.get('/api/admin/game/instances')
+      setServers(serversRes.data)
+      
+      const freshServer = serversRes.data.find(s => s.id === selectedServer.id)
+      if (freshServer) {
+        setSelectedServer(freshServer)
       }
       setSelectedUserId('')
     } catch (err) {
