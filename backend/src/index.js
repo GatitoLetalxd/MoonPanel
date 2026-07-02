@@ -84,6 +84,7 @@ async function createDefaultAdmin() {
 }
 
 const { startGameScheduler } = require('./services/gameScheduler.js')
+const { startDiscordBot } = require('./services/discordBotService.js')
 
 async function startServer() {
   try {
@@ -104,6 +105,9 @@ async function startServer() {
 
     // 5. Iniciar programador de servidores de juego
     startGameScheduler()
+
+    // 6. Iniciar bot de Discord
+    await startDiscordBot()
   } catch (error) {
     console.error('[SYS] Error crítico durante la inicialización del servidor:', error)
     process.exit(1)
