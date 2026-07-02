@@ -12,6 +12,58 @@ const { getGamerules } = require('./gameFileService.js')
 let client = null
 let updateInterval = null
 
+const VALHEIM_STARTING_MESSAGES = [
+  "Descargando servidor via SteamCMD...",
+  "Cargando archivos del mundo...",
+  "Generando ubicaciones del mapa...",
+  "Colocando cuevas de trolls...",
+  "Creando bosques y vegetación...",
+  "Inicializando motor de red...",
+  "Esperando puertos de red..."
+]
+
+const MINECRAFT_STARTING_MESSAGES = [
+  "Iniciando ejecutable Bedrock Dedicated Server...",
+  "Cargando nivel level.dat...",
+  "Abriendo base de datos del mundo (LevelDB)...",
+  "Registrando Resource y Behavior packs...",
+  "Inicializando motor de red RakNet...",
+  "Escuchando en el puerto UDP..."
+]
+
+const transitionLoops = new Map()
+
+function startTransitionLoop(instanceId, gameType) {
+  if (transitionLoops.has(instanceId)) return
+
+  const messages = gameType === 'valheim' ? VALHEIM_STARTING_MESSAGES : MINECRAFT_STARTING_MESSAGES
+  let index = 0
+  let elapsed = 0
+
+  const interval = setInterval(async () => {
+    elapsed += 3
+    try {
+      const instance = await prisma.gameInstance.findUnique({ where: { id: instanceId } })
+      if (!instance || instance.status !== 'starting' || elapsed >= 75) {
+        clearInterval(interval)
+        transitionLoops.delete(instanceId)
+        await updateStatusBoards(instanceId)
+        return
+      }
+
+      index++
+      const currentMsg = messages[index % messages.length]
+      await updateStatusBoards(instanceId, `🟡 **Iniciando:** *${currentMsg}*`)
+    } catch (err) {
+      console.error('[DiscordBot Transition Loop Error]:', err.message)
+      clearInterval(interval)
+      transitionLoops.delete(instanceId)
+    }
+  }, 3000)
+
+  transitionLoops.set(instanceId, interval)
+}
+
 // Setup helper for level.dat sync
 async function syncSettingsPropertiesToLevelDat(containerName) {
   try {
@@ -129,6 +181,9 @@ async function startDiscordBot() {
         // Update board immediately to show transition
         await updateStatusBoards()
 
+        // Start 3-second animated transition loop in Discord
+        startTransitionLoop(instanceId, instance.gameType)
+
         // Start container (catch 304 already started)
         try {
           await container.start()
@@ -228,7 +283,7 @@ async function startDiscordBot() {
   })
 }
 
-async function updateStatusBoards() {
+async function updateStatusBoards(targetInstanceId = null, forcedDescription = null) {
   if (!client || !client.readyAt) return
 
   const mcChannelId = process.env.DISCORD_MINECRAFT_CHANNEL_ID
@@ -236,7 +291,9 @@ async function updateStatusBoards() {
   const domain = process.env.DOMAIN || 'moondev.online'
 
   try {
-    const instances = await prisma.gameInstance.findMany()
+    const instances = targetInstanceId 
+      ? await prisma.gameInstance.findMany({ where: { id: targetInstanceId } })
+      : await prisma.gameInstance.findMany()
 
     for (const instance of instances) {
       const channelId = instance.gameType === 'minecraft' ? mcChannelId : vhChannelId
@@ -251,6 +308,11 @@ async function updateStatusBoards() {
       }
 
       if (!channel || !channel.isTextBased()) continue
+
+      // Auto-trigger transition loop if we find a starting instance in periodic check
+      if (instance.status === 'starting' && !targetInstanceId) {
+        startTransitionLoop(instance.id, instance.gameType)
+      }
 
       // Query player info and version if online
       let playersText = '--'
@@ -282,7 +344,7 @@ async function updateStatusBoards() {
       if (instance.status === 'starting') {
         statusLabel = '🟡 INICIANDO...'
         embedColor = 0xf59e0b // Amber
-        statusDesc = 'El servidor se está iniciando en Docker. Espera a que responda.'
+        statusDesc = forcedDescription || 'El servidor se está iniciando en Docker. Espera a que responda.'
       } else if (instance.status === 'stopping') {
         statusLabel = '🟠 DETENIENDO...'
         embedColor = 0xf97316 // Orange
