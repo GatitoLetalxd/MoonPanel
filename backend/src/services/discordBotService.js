@@ -307,7 +307,7 @@ async function updateStatusBoards() {
           { name: 'Puerto', value: `\`${instance.queryPort}\``, inline: true },
           { name: 'Versión', value: `\`${versionText}\``, inline: true }
         )
-        .setFooter({ text: 'MoonPanel Discord Service | Actualizado automáticamente' })
+        .setFooter({ text: `MoonPanel Discord Service | ID: ${instance.id}` })
         .setTimestamp()
 
       // Build control buttons
@@ -332,7 +332,7 @@ async function updateStatusBoards() {
           .setStyle(ButtonStyle.Secondary)
       )
 
-      // Find old status message sent by this bot in this channel
+      // Find old status message sent by this bot in this channel for this specific instance
       let messages = []
       try {
         messages = await channel.messages.fetch({ limit: 50 })
@@ -340,7 +340,13 @@ async function updateStatusBoards() {
         console.error('[DiscordBot Message Fetch Err]:', fetchErr.message)
       }
 
-      const botMsg = messages.find(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title.includes(instance.gameType === 'minecraft' ? 'Minecraft' : 'Valheim'))
+      const botMsg = messages.find(m => 
+        m.author.id === client.user.id && 
+        m.embeds.length > 0 && 
+        m.embeds[0].footer && 
+        m.embeds[0].footer.text && 
+        m.embeds[0].footer.text.includes(`ID: ${instance.id}`)
+      )
 
       if (botMsg) {
         // Edit existing message
