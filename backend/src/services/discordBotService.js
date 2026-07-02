@@ -88,6 +88,11 @@ async function startDiscordBot() {
   client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return
 
+    // Defer response immediately to avoid Discord's 3-second timeout limit
+    try {
+      await interaction.deferUpdate()
+    } catch (_) {}
+
     const [action, gameType, instanceIdStr] = interaction.customId.split('_')
     const instanceId = parseInt(instanceIdStr, 10)
 
@@ -98,21 +103,18 @@ async function startDiscordBot() {
       })
 
       if (!instance) {
-        return interaction.reply({ content: '❌ Instancia de juego no encontrada.', ephemeral: true })
+        return interaction.followUp({ content: '❌ Instancia de juego no encontrada.', ephemeral: true })
       }
 
       const container = docker.getContainer(instance.containerId)
 
       if (action === 'start') {
         if (instance.status === 'online') {
-          return interaction.reply({ content: '🟢 El servidor ya está encendido.', ephemeral: true })
+          return interaction.followUp({ content: '🟢 El servidor ya está encendido.', ephemeral: true })
         }
         if (['starting', 'stopping'].includes(instance.status)) {
-          return interaction.reply({ content: '🟡 El servidor está en transición. Espera un momento.', ephemeral: true })
+          return interaction.followUp({ content: '🟡 El servidor está en transición. Espera un momento.', ephemeral: true })
         }
-
-        // Defer response to show bot is working
-        await interaction.deferUpdate()
 
         // Sync and update DB to starting
         if (instance.gameType === 'minecraft') {
@@ -127,8 +129,14 @@ async function startDiscordBot() {
         // Update board immediately to show transition
         await updateStatusBoards()
 
-        // Start container
-        await container.start()
+        // Start container (catch 304 already started)
+        try {
+          await container.start()
+        } catch (startErr) {
+          if (startErr.statusCode !== 304 && !startErr.message.includes('304')) {
+            throw startErr
+          }
+        }
         resetGameTracker(instanceId)
 
         // Set fallback to mark online after 60s
@@ -149,10 +157,8 @@ async function startDiscordBot() {
 
       if (action === 'stop') {
         if (instance.status !== 'online') {
-          return interaction.reply({ content: '🔴 El servidor no está online.', ephemeral: true })
+          return interaction.followUp({ content: '🔴 El servidor no está online.', ephemeral: true })
         }
-
-        await interaction.deferUpdate()
 
         await prisma.gameInstance.update({
           where: { id: instanceId },
