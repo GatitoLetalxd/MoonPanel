@@ -7,59 +7,61 @@
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v3-38bdf8?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-**MoonPanel** es una plataforma autohospedada de PaaS (Platform-as-a-Service) y administración de servidores diseñada para simplificar el aprovisionamiento, aislamiento y despliegue automático de aplicaciones web y servidores de videojuegos (**Minecraft Bedrock** y **Valheim**) en contenedores Docker independientes. 
+**MoonPanel** es una potente plataforma autohospedada de **PaaS (Platform-as-a-Service)** diseñada para automatizar la creación de entornos aislados, aprovisionamiento y despliegue continuo de aplicaciones web y bases de datos en un único servidor VPS (como Contabo). 
 
-Optimiza y exprime al máximo un único servidor VPS (como Contabo), automatizando puertos, subdominios secuenciales, enrutamiento reverso Nginx, bases de datos y certificados SSL con Let's Encrypt de manera instantánea.
-
----
-
-## 🚀 Pilares Tecnológicos
-
-### 🖥️ 1. Orquestación y Aislamiento PaaS
-* **Despliegue GitHub en 4 Pasos:** Auto-detección del entorno de ejecución (NodeJS, React, Python, HTML estático) y auto-configuración de proxies inversos en segundos.
-* **Aislamiento Total Docker:** Inyección automática de llaves SSH públicas al contenedor para el acceso seguro de los desarrolladores.
-* **Administración de Bases de Datos:** Aprovisionamiento instantáneo de bases de datos PostgreSQL o MySQL integradas dentro del contenedor de la aplicación, con una consola interactiva de consulta SQL.
-* **Control de Recursos y Telemetría:** Monitoreo en tiempo real de consumo de CPU, RAM y almacenamiento en disco de cada cliente con hermosas gráficas reactivas.
-
-### 🎮 2. Servidores de Videojuegos (Minecraft & Valheim)
-* **Consola Interactiva y server.properties:** Panel de control total estilo *Aternos* con toggles de configuración reactiva rápidos y sin redirección de página.
-* **Editor NBT Seguro (level.dat):** Edición segura de reglas internas del mundo en Minecraft Bedrock (cheats, modo educativo, dificultades) procesando de forma nativa la cabecera y el payload NBT.
-* **Gestor de Add-ons Inteligente:**
-  * Soporte completo para subir archivos `.mcpack`, `.mcaddon` y `.zip`.
-  * **Auto-descompresión recursiva:** Desenpaqueta de forma automática meta-archivos con compresión múltiple (ej. mods que traen carpetas de comportamiento y recursos anidados).
-  * **Sanitización de Caracteres Especiales:** Evasión de bloqueos en nombres de archivos con caracteres no ASCII, emojis o códigos de color de Minecraft.
-  * **Localización Automática:** Resolución del nombre del Add-on consultando los archivos `.lang` internos para evitar que se guarden con etiquetas genéricas (como `pack.name`).
-* **Query UDP Nativo:** Monitoreo periódico del estado y número de jugadores activos mediante protocolos RakNet (Minecraft) y Steam A2S (Valheim).
-
-### 💤 3. Programador de Apagado por Inactividad (Auto-Sleep)
-* **Cero Desperdicio de Recursos:** Un servicio en segundo plano (Scheduler) monitoriza la actividad de los servidores de juego y detiene el contenedor automáticamente tras 5 minutos sin usuarios conectados, liberando la memoria RAM y ciclos de CPU para las demás instancias activas del servidor.
-
-### 🎨 4. Interfaz de Usuario Cyberpunk & Toasts No Invasivos
-* **Alineación Visual Premium:** Diseñado con una paleta oscura, bordes brillantes de acento futuristas, y paneles modales con desenfoque de fondo (`backdrop-blur`).
-* **Cero Alertas del Navegador:** Eliminación total de ventanas flotantes `alert()` o `confirm()`. Se ha integrado un sistema propio de **toasts de notificación animados** en la esquina inferior derecha para advertencias, errores y éxitos.
+Adicionalmente, incorpora una sección especializada de **Administración de Servidores de Videojuegos** (Minecraft Bedrock y Valheim) bajo demanda.
 
 ---
 
-## 📂 Arquitectura del Repositorio
+## 🚀 Pilares y Características Principales
 
-El proyecto se estructura como un monorepo ordenado:
+### 🖥️ 1. Creador de Instancias y Aislamiento PaaS (Foco Principal)
+MoonPanel actúa como un panel de control ligero (estilo Caprover o Heroku) enfocado en gestionar clientes y aprovisionar recursos dinámicamente en producción:
+* **Creación Automática de Instancias:** Asignación secuencial de subdominios correlativos (`vmi01` a `vmi99` bajo el wildcard principal) asignando proxies enrutados de Nginx y puertos libres.
+* **Flujo de Despliegue Git en 4 Pasos:**
+  1. **Bases de Datos Dedicadas:** Creación instantánea de bases de datos PostgreSQL o MySQL aisladas por contenedor, con consola interactiva SQL para ejecución de scripts directa.
+  2. **Variables de Entorno (.env):** Gestión segura de secretos inyectados en caliente al contenedor.
+  3. **Conexión a Repositorios GitHub:** Detección automática del entorno de ejecución (NodeJS, React, Python, HTML estático) y auto-configuración del compilador.
+  4. **Logs en Tiempo Real (SSE):** Historial y consola en vivo de despliegues mediante Server-Sent Events.
+* **Acceso SSH Directo:** Inyección automatizada de claves públicas autorizadas al contenedor aislado para permitir conexiones directas de los desarrolladores.
+* **Control de Recursos en Tiempo Real:** Limitación granular de CPU (shares) y memoria RAM de los contenedores Docker en caliente con gráficos de telemetría interactivos.
+
+### 🎮 2. Administrador de Servidores de Juego (Minecraft & Valheim)
+* **Consola Interactiva e Inyección de Comandos:** Editor de propiedades interactivo estilo *Aternos* con toggles reactivos y terminal para inyección de comandos en caliente.
+* **Sincronización level.dat NBT:** Lógica binaria integrada para leer y modificar propiedades internas del mundo de Minecraft Bedrock (cheats, logros de Xbox Live, modo educativo, dificultades) recalculando el payload NBT y su encabezado para evitar corrupción de archivos.
+* **Gestor de Add-ons con Resolución `.lang`:** Extractor recursivo de complementos `.mcpack` y `.mcaddon` con sanitización de caracteres especiales y lectura de archivos de idioma para mostrar nombres de mods reales (evitando la etiqueta genérica `pack.name`).
+* **Query RakNet & Steam A2S:** Consulta UDP en segundo plano para conocer el estado y número de jugadores conectados.
+
+### 💤 3. Programador de Suspensión por Inactividad (Auto-Sleep)
+* **Optimización de Recursos VPS:** Servicio automático que detiene el contenedor de juego tras 5 minutos sin jugadores conectados, liberando memoria RAM y ciclos de CPU para las aplicaciones web activas de los clientes.
+
+### 🤖 4. Panel de Control Integrado en Discord
+* **Bot de Control Multicanal:** Canales dedicados independientes para cada servidor de videojuegos.
+* **Tarjetas Interactivas con Botones:** Embeds actualizados dinámicamente con botones de **Encender**, **Apagar** y **Refrescar**.
+* **Secuencia de Inicio Animada:** Ciclo dinámico cada 3 segundos de mensajes con detalles del progreso del arranque en Docker, evitando bloqueos por timeouts o excepciones de Docker.
+
+---
+
+## 📂 Estructura del Proyecto
+
+El proyecto está organizado en un monorepo modular:
 
 ```
 MoonPanel/
-├── backend/            # Express REST API + Motores Docker, Nginx, Git y NBT
+├── backend/            # Express REST API + Docker/Nginx Controller + Bot de Discord
 │   ├── src/
-│   │   ├── controllers/# Lógica para autenticación, gestión de clientes e instancias
-│   │   ├── middleware/ # Control de sesión, roles de administrador y contextos
-│   │   ├── routes/     # Endpoints REST estructurados por dominio (Admin, Client, Game)
-│   │   ├── services/   # Servicios核心 (addonService, levelDatService, deployService...)
-│   │   └── index.js    # Punto de entrada de la API Express
+│   │   ├── controllers/# Controladores para clientes, autenticación y servidores
+│   │   ├── middleware/ # Sesión, roles, límites de peticiones y contexto
+│   │   ├── routes/     # Endpoints HTTP (PaaS, Administración de Juegos)
+│   │   ├── services/   # Servicios (discordBot, levelDat, deploy, playerQuery...)
+│   │   └── index.js    # Inicialización del servidor Express y del Bot
 │   ├── prisma/         # Esquema de base de datos relacional (PostgreSQL)
 │   └── package.json
 ├── frontend/           # SPA React 18 + Vite + Tailwind CSS
 │   ├── src/
-│   │   ├── components/ # Componentes reutilizables, telemetría e indicadores visuales
-│   │   ├── pages/      # Dashboards de Cliente, Administrador y Videojuegos (GameDashboard)
-│   │   └── App.jsx     # Enrutador y middleware de vistas
+│   │   ├── components/ # Telemetría de recursos, selectores y modales interactivos
+│   │   ├── pages/      # Dashboards PaaS, Clientes y Panel de Videojuegos
+│   │   └── App.jsx     # Configuración y enrutado seguro
 │   ├── tailwind.config.js
 │   └── package.json
 └── cambios y detalles.md # Documento histórico de cambios detallados en la app
@@ -100,6 +102,12 @@ DOMAIN="tudominio.com"
 ADMIN_EMAIL="admin@tudominio.com"
 ADMIN_USERNAME="AdminUsername"
 ADMIN_PASSWORD="AdminPasswordSegura"
+
+# Opcionales para el Bot de Discord:
+DISCORD_BOT_TOKEN="TokenDeTuBot"
+DISCORD_CLIENT_ID="ClientIDDeTuBot"
+DISCORD_MINECRAFT_CHANNEL_ID="IDCanalMinecraft"
+DISCORD_VALHEIM_CHANNEL_ID="IDCanalValheim"
 ```
 Ejecuta la base de datos e inicia el backend con **PM2** (requiere privilegios root para administrar Nginx y Certbot):
 ```bash
