@@ -18,7 +18,9 @@
     "express": "^4.19.2",
     "generate-password": "^1.7.0",
     "jsonwebtoken": "^9.0.2",
-    "node-ssh": "^13.2.0"
+    "multer": "^2.2.0",
+    "node-ssh": "^13.2.0",
+    "prismarine-nbt": "^2.8.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0",

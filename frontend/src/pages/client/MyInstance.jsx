@@ -264,10 +264,10 @@ export default function MyInstance() {
       <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center mb-8">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-white tracking-wide">Mi Servidor Web</h2>
+            <h2 className="text-2xl font-bold text-white tracking-widest font-sans uppercase neon-glow-blue">Mi Servidor Web</h2>
             <StatusBadge status={instance.status} />
           </div>
-          <p className="text-sm text-moon-text/50 font-mono">Administra tu instancia y despliega tus proyectos</p>
+          <p className="text-xs text-slate-500 font-mono tracking-wide mt-1">Administra tu instancia y despliega tus proyectos</p>
         </div>
         
         {/* Container action buttons */}
@@ -275,26 +275,26 @@ export default function MyInstance() {
           <button
             onClick={() => handleAction('start')}
             disabled={actionLoading || instance.status === 'RUNNING'}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 disabled:opacity-40 disabled:hover:bg-transparent rounded-lg text-xs font-semibold tracking-wider font-mono uppercase transition-all-custom"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 disabled:opacity-40 disabled:hover:bg-transparent rounded-lg text-xs font-bold tracking-wider font-mono uppercase transition-all-custom cursor-pointer"
           >
-            <Play size={14} />
+            <Play size={12} />
             <span>Start</span>
           </button>
           <button
             onClick={() => handleAction('stop')}
             disabled={actionLoading || instance.status === 'STOPPED'}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/20 disabled:opacity-40 disabled:hover:bg-transparent rounded-lg text-xs font-semibold tracking-wider font-mono uppercase transition-all-custom"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/20 disabled:opacity-40 disabled:hover:bg-transparent rounded-lg text-xs font-bold tracking-wider font-mono uppercase transition-all-custom cursor-pointer"
           >
-            <Square size={14} />
+            <Square size={12} />
             <span>Stop</span>
           </button>
           <button
             onClick={() => handleAction('restart')}
             disabled={actionLoading}
-            className="p-2.5 bg-moon-surface hover:bg-moon-border text-moon-text hover:text-white border border-moon-border rounded-lg transition-all-custom"
+            className="p-2.5 bg-moon-surface hover:bg-moon-border text-moon-text hover:text-white border border-moon-border rounded-lg transition-all-custom cursor-pointer"
             title="Reiniciar Servidor"
           >
-            <RotateCcw size={16} className={actionLoading ? 'animate-spin' : ''} />
+            <RotateCcw size={14} className={actionLoading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>

@@ -27,7 +27,7 @@ function startGameScheduler() {
 }
 
 async function checkInstance(instance) {
-  const players = await queryPlayers(instance.gameType, instance.queryPort)
+  const players = await queryPlayers(instance.gameType, instance.queryPort, instance.containerId)
 
   if (!trackers.has(instance.id)) {
     trackers.set(instance.id, { emptyMs: 0 })

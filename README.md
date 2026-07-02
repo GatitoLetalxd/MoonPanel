@@ -2,6 +2,8 @@
 
 **MoonPanel** es un panel de control ligero y auto-hospedado (PaaS) diseñado para simplificar el aprovisionamiento, administración y despliegue automático de aplicaciones web en contenedores Docker aislados. Es una solución ideal para gestionar múltiples clientes sobre un único servidor VPS (como Contabo), automatizando la creación de bases de datos, asignación de puertos, generación de subdominios, enrutamiento Nginx y certificados SSL automáticos con Certbot.
 
+Además de aplicaciones web estándar, MoonPanel incorpora una potente sección de administración y juego para servidores de videojuegos multijugador aislados en Docker, enfocada en Minecraft Bedrock Edition y Valheim.
+
 ---
 
 ## Características Principales
@@ -28,6 +30,36 @@
     3.  **Paso 3: Desplegar Nuevo Repositorio**: Conexión con repositorios públicos de GitHub. Cuenta con auto-detección de entornos (NodeJS, React, Python, HTML estático) y autoconfiguración de proxies. Incluye un acordeón de guías de compatibilidad estructurada.
     4.  **Paso 4: Historial de Despliegues**: Listado de compilaciones previas y conexión vía Server-Sent Events (SSE) a la terminal de logs en tiempo real.
 
+### Administración de Servidores de Juegos (Game Servers)
+*   **Aprovisionamiento de Instancias**: Soporte para servidores de juegos multijugador aislados en Docker (Minecraft Bedrock Edition y Valheim).
+*   **Monitoreo y Telemetría en Tiempo Real**:
+    *   Consulta periódica del estado del servidor utilizando protocolos UDP nativos (**Steam A2S_INFO** para Valheim y **RakNet Unconnected Ping** para Minecraft Bedrock).
+    *   Fallback inteligente al escaneo y parseo de logs del contenedor en caliente para contar jugadores en Valheim si el query UDP no responde.
+*   **Auto-Apagado por Inactividad (Auto-sleep Scheduler)**:
+    *   Servicio en segundo plano que detiene automáticamente el contenedor del juego tras 5 minutos sin jugadores conectados, liberando CPU y RAM del VPS.
+*   **Control de Acceso y Delegación (ACL)**:
+    *   Asignación de permisos granulares a múltiples clientes (`owner` o `player`) sobre instancias de juegos para control de encendido, apagado e inicio.
+*   **Gestión Unificada del Mundo**:
+    *   Descarga en vivo del mundo activo (`.zip`) y subida/reemplazo de mundos existentes desde el panel.
+    *   Generador y Wipe (borrado) del mundo especificando **Semilla (Seed)**, **Nombre del Mundo** (`level-name`) y **Dificultad inicial** desde la UI.
+*   **Editor de Opciones y server.properties (Estilo Aternos)**:
+    *   Edición interactiva con guardado directo individual (Toggles y inputs con minibotones de disquete reactivos).
+    *   Consola interactiva: Inyección de gamerules, comandos y dificultades en tiempo real sin requerir reinicios del servidor.
+*   **Lógica de level.dat y Reglas de Juego (Minecraft Bedrock)**:
+    *   Soporte completo para lectura y manipulación de NBT binario (`level.dat`) mediante `prismarine-nbt`.
+    *   Control detallado de tags críticos: `commandsEnabled`, `cheatsEnabled`, `EducationFeatures` y verificación de `hasBeenLoadedInCreative`.
+    *   Advertencias visuales (`ShieldAlert` en rojo/naranja) que previenen sobre cambios que inhabilitan logros de Xbox Live permanentemente.
+    *   Exposición de claves crudas NBT monoespaciadas para transparencia técnica total.
+*   **Gestión de Addons y Complementos**:
+    *   Instalación automática y activación de paquetes `.mcpack`, `.mcaddon` o archivos `.zip` dentro de las carpetas `behavior_packs` y `resource_packs`.
+    *   Edición automatizada de los manifiestos JSON de registro del mundo (`world_behavior_packs.json` y `world_resource_packs.json`).
+*   **Explorador y Editor de Archivos Integrado**:
+    *   Explorador interactivo del sistema de archivos interno del contenedor de juego con editor de texto plano para modificar configuraciones.
+*   **Backups y Respaldos**:
+    *   Creación, restauración, listado y descarga de copias de seguridad de los mundos directamente desde la interfaz.
+*   **Ventanas Modales Cyberpunk**:
+    *   Eliminación total de diálogos nativos (`alert()`, `confirm()`) por modales animados con desenfoque de fondo (`backdrop-blur`) y acentos de color vibrantes (glows rojos/naranjas).
+
 ---
 
 ## Arquitectura del Proyecto
@@ -39,15 +71,48 @@ MoonPanel/
 ├── backend/            # Servidor NodeJS + Express API + Docker & Nginx Services
 │   ├── src/
 │   │   ├── controllers/# Controladores de autenticación, clientes e instancias
-│   │   ├── routes/     # Endpoints REST expuestos (Admin & Client)
-│   │   ├── services/   # Motores de comunicación con Docker, Nginx y Git Deploy
-│   │   └── index.js    # Punto de entrada principal
-│   ├── prisma/         # Esquemas de base de datos y migraciones
+│   │   ├── middleware/ # Middlewares (Autenticación, rate limiting y contexto de juego)
+│   │   │   ├── auth.js
+│   │   │   ├── gameContext.js
+│   │   │   ├── isAdmin.js
+│   │   │   └── rateLimiter.js
+│   │   ├── routes/     # Endpoints REST expuestos (Admin, Client y Game Servers)
+│   │   │   ├── admin.js
+│   │   │   ├── auth.js
+│   │   │   ├── client.js
+│   │   │   ├── game.routes.js       # Control y configuración de juego para el cliente
+│   │   │   └── gameAdmin.routes.js  # Registro y control de juego para el admin
+│   │   ├── services/   # Motores de comunicación con Docker, Nginx, Git y videojuegos
+│   │   │   ├── addonService.js      # Instalación y control de complementos (.mcpack)
+│   │   │   ├── cryptoService.js     # Utilidades de seguridad y hashes
+│   │   │   ├── deployService.js     # Motor de auto-despliegue de repositorios Git
+│   │   │   ├── dockerService.js     # Integración con el socket de la API de Docker
+│   │   │   ├── gameConfigService.js # Gestor de configs de servidor (properties)
+│   │   │   ├── gameFileService.js   # Explorador y editor de archivos
+│   │   │   ├── gameScheduler.js     # Auto-sleep y apagado automático por inactividad
+│   │   │   ├── levelDatService.js   # Parser y modificador de NBT de level.dat
+│   │   │   ├── nginxService.js      # Configuración de proxies inversos y SSL con Certbot
+│   │   │   └── playerQueryService.js# Consulta UDP (Steam A2S_INFO y RakNet ping)
+│   │   └── index.js    # Punto de entrada principal e inicialización de Express
+│   ├── prisma/         # Esquema de base de datos y migraciones (PostgreSQL)
+│   │   └── schema.prisma
 │   └── package.json
 ├── frontend/           # Interfaz de usuario React + Vite + Tailwind CSS
 │   ├── src/
-│   │   ├── components/ # Componentes (Layout responsivo, Sidebar drawer, metrics)
-│   │   ├── pages/      # Páginas de Cliente (Deployments, MyInstance, SSHKeys) y Admin
+│   │   ├── components/ # Componentes comunes (Sidebar, Metrics, InstanceSelector)
+│   │   ├── pages/      # Páginas de la SPA
+│   │   │   ├── admin/
+│   │   │   │   ├── Clients.jsx
+│   │   │   │   ├── CreateClient.jsx
+│   │   │   │   ├── Dashboard.jsx
+│   │   │   │   ├── GameServers.jsx   # Vista de administración de servidores de juegos
+│   │   │   │   └── InstanceDetail.jsx
+│   │   │   ├── client/
+│   │   │   │   ├── Deployments.jsx
+│   │   │   │   ├── MyInstance.jsx
+│   │   │   │   └── SSHKeys.jsx
+│   │   │   ├── GameDashboard.jsx     # Panel de videojuegos Cyberpunk (Aternos-like)
+│   │   │   └── Login.jsx
 │   │   └── App.jsx     # Enrutamiento principal y protección de sesión
 │   ├── tailwind.config.js
 │   └── package.json
@@ -56,7 +121,7 @@ MoonPanel/
 
 ### Tecnologías Clave
 *   **Frontend**: React 18, Vite, Tailwind CSS v3, Recharts, Lucide Icons, Axios.
-*   **Backend**: NodeJS, Express, Prisma ORM, JWT, Dockerode (Docker API socket integration), Ripgrep.
+*   **Backend**: NodeJS, Express, Prisma ORM, JWT, Dockerode (Docker API socket integration), Ripgrep, `prismarine-nbt` (NBT parsing), `multer` (Manejo de archivos multipart/uploads), `node-ssh`, `dgram` (Sockets UDP).
 *   **Infraestructura**: Docker Engine, Nginx Reverse Proxy, Certbot (Let's Encrypt), PostgreSQL (Base de datos del sistema central).
 
 ---
@@ -101,6 +166,10 @@ ufw allow 2210:2260/tcp
 # Bloquear accesos HTTP directos a contenedores de clientes
 ufw deny 3010:3129/tcp
 
+# Permitir puertos de videojuegos y queries UDP
+ufw allow 19132/udp      # Minecraft Bedrock por defecto
+ufw allow 2456:2457/udp  # Valheim por defecto
+
 # Activar firewall
 ufw enable
 ```
@@ -140,7 +209,7 @@ sudo -u postgres psql -c "ALTER USER moonpanel CREATEDB;"
     npm install
     npx prisma migrate deploy
     ```
-3.  Inicia el servidor backend mediante **PM2** (debe ejecutarse como **root** para tener permisos de escritura sobre las carpetas de Nginx en `/etc/nginx/sites-available/` y para interactuar con Certbot):
+3.  Inicia el servidor backend mediante **PM2** (debe ejecutarse como **root** para tener permisos de escritura sobre las carpetas de Nginx en `/etc/nginx/sites-available/` y para interactuar con Certbot y el socket de Docker):
     ```bash
     npm install -g pm2
     pm2 start src/index.js --name "moonpanel-backend"
@@ -212,3 +281,4 @@ Si deseas probar cambios localmente:
     npm run dev
     ```
     *Nota: Axios está configurado en `frontend/src/api/axios.js` para resolver automáticamente la URL base dependiendo de `window.location.hostname`, lo que permite probar el frontend desde dispositivos en la misma red local.*
+

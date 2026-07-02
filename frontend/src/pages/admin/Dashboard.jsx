@@ -60,27 +60,27 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen">
+    <div className="flex-1 p-4 sm:p-8 bg-moon-bg min-h-screen select-none">
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between sm:items-center mb-8">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-wide">Dashboard de Control</h2>
-          <p className="text-sm text-moon-text/50 font-mono">Control operativo global de moondev.online</p>
+          <h2 className="text-2xl font-bold text-white tracking-widest font-sans uppercase neon-glow-blue">Dashboard de Control</h2>
+          <p className="text-xs text-slate-500 font-mono tracking-wide mt-1">Control operativo global de moondev.online</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleRefresh}
             disabled={refreshing}
-            className="p-3 bg-moon-surface border border-moon-border hover:border-moon-accent/50 text-moon-text hover:text-white rounded-lg transition-all-custom flex items-center justify-center"
+            className="p-3 bg-moon-surface border border-moon-border hover:border-blue-500/40 text-slate-400 hover:text-white rounded-lg transition-all-custom flex items-center justify-center cursor-pointer"
             title="Refrescar datos"
           >
-            <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
           <Link 
             to="/admin/create-client"
-            className="flex items-center gap-2 px-4 py-3 bg-moon-accent hover:bg-moon-hover text-white font-semibold rounded-lg shadow-lg shadow-moon-accent/20 hover:shadow-moon-hover/30 transition-all-custom text-sm"
+            className="flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-md shadow-blue-600/10 hover:shadow-blue-500/25 transition-all-custom text-xs uppercase tracking-wider font-sans cursor-pointer animate-pulse"
           >
-            <Plus size={16} />
+            <Plus size={14} />
             <span>Crear Cliente</span>
           </Link>
         </div>
@@ -88,42 +88,42 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-moon-surface border border-moon-border p-6 rounded-xl relative overflow-hidden group">
-          <div className="absolute top-4 right-4 text-moon-text/25 group-hover:text-moon-accent transition-all-custom">
-            <Server size={24} />
+        <div className="bg-moon-surface/40 border border-blue-500/10 p-6 rounded-xl relative overflow-hidden group hover:border-blue-500/25 transition-all shadow-[0_0_10px_rgba(37,99,235,0.01)] hover:shadow-[0_0_15px_rgba(37,99,235,0.05)] cursor-default">
+          <div className="absolute top-4 right-4 text-blue-500/20 group-hover:text-blue-400 transition-all-custom">
+            <Server size={22} />
           </div>
-          <p className="text-xs font-semibold text-moon-text/50 font-mono uppercase tracking-wider mb-1">Total Instancias</p>
+          <p className="text-[10px] font-bold text-slate-500 font-sans uppercase tracking-widest mb-1">TOTAL INSTANCIAS</p>
           <h3 className="text-3xl font-bold text-white font-mono">{totalInstances}</h3>
-          <p className="text-xs text-moon-text/40 mt-2 font-mono">Límite operativo: 6</p>
+          <p className="text-[10px] text-slate-600 mt-2 font-mono">Límite operativo: 6</p>
         </div>
 
-        <div className="bg-moon-surface border border-moon-border p-6 rounded-xl relative overflow-hidden group">
+        <div className="bg-moon-surface/40 border border-emerald-500/10 p-6 rounded-xl relative overflow-hidden group hover:border-emerald-500/25 transition-all shadow-[0_0_10px_rgba(34,197,94,0.01)] hover:shadow-[0_0_15px_rgba(34,197,94,0.05)] cursor-default">
           <div className="absolute top-4 right-4 text-emerald-500/20 group-hover:text-emerald-400 transition-all-custom">
-            <Activity size={24} />
+            <Activity size={22} />
           </div>
-          <p className="text-xs font-semibold text-moon-text/50 font-mono uppercase tracking-wider mb-1">Instancias Activas</p>
+          <p className="text-[10px] font-bold text-slate-500 font-sans uppercase tracking-widest mb-1">INSTANCIAS ACTIVAS</p>
           <h3 className="text-3xl font-bold text-emerald-400 font-mono">{activeInstances}</h3>
-          <p className="text-xs text-moon-text/40 mt-2 font-mono">
+          <p className="text-[10px] text-slate-600 mt-2 font-mono">
             {totalInstances > 0 ? Math.round((activeInstances / totalInstances) * 100) : 0}% de carga activa
           </p>
         </div>
 
-        <div className="bg-moon-surface border border-moon-border p-6 rounded-xl relative overflow-hidden group">
-          <div className="absolute top-4 right-4 text-moon-text/25 group-hover:text-moon-accent transition-all-custom">
-            <Cpu size={24} />
+        <div className="bg-moon-surface/40 border border-fuchsia-500/10 p-6 rounded-xl relative overflow-hidden group hover:border-fuchsia-500/25 transition-all shadow-[0_0_10px_rgba(217,70,239,0.01)] hover:shadow-[0_0_15px_rgba(217,70,239,0.05)] cursor-default">
+          <div className="absolute top-4 right-4 text-fuchsia-500/20 group-hover:text-fuchsia-400 transition-all-custom">
+            <Cpu size={22} />
           </div>
-          <p className="text-xs font-semibold text-moon-text/50 font-mono uppercase tracking-wider mb-1">RAM Asignada Activa</p>
+          <p className="text-[10px] font-bold text-slate-500 font-sans uppercase tracking-widest mb-1">RAM ASIGNADA</p>
           <h3 className="text-3xl font-bold text-white font-mono">{(totalRamUsed / 1024).toFixed(2)} GB</h3>
-          <p className="text-xs text-moon-text/40 mt-2 font-mono">Consumo total estimado</p>
+          <p className="text-[10px] text-slate-600 mt-2 font-mono">Consumo total estimado</p>
         </div>
 
-        <div className="bg-moon-surface border border-moon-border p-6 rounded-xl relative overflow-hidden group">
-          <div className="absolute top-4 right-4 text-moon-text/25 group-hover:text-moon-accent transition-all-custom">
-            <Users size={24} />
+        <div className="bg-moon-surface/40 border border-cyan-500/10 p-6 rounded-xl relative overflow-hidden group hover:border-cyan-500/25 transition-all shadow-[0_0_10px_rgba(6,182,212,0.01)] hover:shadow-[0_0_15px_rgba(6,182,212,0.05)] cursor-default">
+          <div className="absolute top-4 right-4 text-cyan-500/20 group-hover:text-cyan-400 transition-all-custom">
+            <Users size={22} />
           </div>
-          <p className="text-xs font-semibold text-moon-text/50 font-mono uppercase tracking-wider mb-1">Clientes Registrados</p>
+          <p className="text-[10px] font-bold text-slate-500 font-sans uppercase tracking-widest mb-1">CLIENTES REGISTRADOS</p>
           <h3 className="text-3xl font-bold text-white font-mono">{totalClients}</h3>
-          <p className="text-xs text-moon-text/40 mt-2 font-mono">Roles tipo CLIENT</p>
+          <p className="text-[10px] text-slate-600 mt-2 font-mono">Roles tipo CLIENT</p>
         </div>
       </div>
 

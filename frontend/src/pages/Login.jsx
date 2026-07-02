@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Moon, Eye, EyeOff, Lock, User, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Lock, User, AlertCircle } from 'lucide-react'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -44,37 +44,45 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-moon-bg flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Decorative lunar glow */}
-      <div className="absolute w-[500px] h-[500px] rounded-full bg-moon-accent/5 blur-[120px] -top-40 -right-40" />
-      <div className="absolute w-[300px] h-[300px] rounded-full bg-indigo-500/5 blur-[100px] -bottom-20 -left-20" />
+    <div className="min-h-screen bg-moon-bg flex items-center justify-center p-6 relative overflow-hidden select-none">
+      {/* Decorative neon cyberpunk glows */}
+      <div className="absolute w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[120px] -top-40 -right-40" />
+      <div className="absolute w-[300px] h-[300px] rounded-full bg-rose-500/5 blur-[100px] -bottom-20 -left-20" />
+      
+      {/* HUD corner borders */}
+      <div className="absolute top-8 left-8 w-12 h-12 border-t-2 border-l-2 border-blue-500/20 pointer-events-none" />
+      <div className="absolute bottom-8 right-8 w-12 h-12 border-b-2 border-r-2 border-blue-500/20 pointer-events-none" />
 
-      <div className="w-full max-w-md bg-moon-surface border border-moon-border/80 p-8 rounded-2xl shadow-2xl relative z-10">
+      <div className="w-full max-w-md bg-moon-surface/60 border border-blue-500/15 p-8 rounded-xl shadow-[0_0_30px_rgba(37,99,235,0.08)] relative z-10 backdrop-blur-md">
         
+        {/* Corner tech dots */}
+        <div className="absolute top-0 right-0 w-2 h-2 bg-blue-500/50 rounded-bl-sm" />
+        <div className="absolute bottom-0 left-0 w-2 h-2 bg-blue-500/50 rounded-tr-sm" />
+
         {/* Header */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <img src="/Moon-icon.png" alt="MoonPanel Logo" className="w-14 h-14 object-contain mb-4 animate-pulse" />
-          <h2 className="text-2xl font-bold text-white tracking-wide">MoonPanel</h2>
-          <p className="text-sm text-moon-text/50 font-mono mt-1">moondev.online</p>
+          <img src="/Moon-icon.png" alt="MoonPanel Logo" className="w-14 h-14 object-contain mb-4 filter drop-shadow-[0_0_8px_rgba(37,99,235,0.3)]" />
+          <h2 className="text-2xl font-bold text-white tracking-widest font-sans neon-glow-blue uppercase">MOONPANEL</h2>
+          <p className="text-[10px] text-blue-400 font-bold tracking-widest font-mono mt-1">SISTEMA DE ACCESO HUD</p>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 flex items-start gap-3 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-lg animate-shake">
-            <AlertCircle size={18} className="shrink-0 mt-0.5" />
-            <span className="font-medium">{error}</span>
+          <div className="mb-6 flex items-start gap-3 p-4 bg-rose-500/5 border border-rose-500/20 text-rose-400 text-xs rounded-lg font-mono">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span className="font-semibold leading-relaxed">{error}</span>
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
-              Usuario o Correo
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-sans">
+              Credencial / Correo
             </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-moon-text/40">
-                <User size={18} />
+            <div className="relative border-glow-blue border rounded-lg bg-black/45 overflow-hidden transition-all-custom">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500">
+                <User size={16} />
               </span>
               <input
                 type="text"
@@ -82,18 +90,18 @@ export default function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="daniel / email@moondev.online"
-                className="w-full pl-10 pr-4 py-3 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white placeholder-moon-text/30 rounded-xl focus:outline-none transition-all-custom font-mono text-sm"
+                className="w-full pl-10 pr-4 py-3 bg-transparent text-white placeholder-slate-600 focus:outline-none font-mono text-xs cursor-text"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider mb-2">
-              Contraseña
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 font-sans">
+              Clave de Acceso
             </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-moon-text/40">
-                <Lock size={18} />
+            <div className="relative border-glow-blue border rounded-lg bg-black/45 overflow-hidden transition-all-custom">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500">
+                <Lock size={16} />
               </span>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -101,14 +109,14 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full pl-10 pr-10 py-3 bg-moon-card border border-moon-border hover:border-moon-text/30 focus:border-moon-accent text-white placeholder-moon-text/30 rounded-xl focus:outline-none transition-all-custom font-mono text-sm"
+                className="w-full pl-10 pr-10 py-3 bg-transparent text-white placeholder-slate-600 focus:outline-none font-mono text-xs cursor-text"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-moon-text/40 hover:text-white transition-all-custom"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-white transition-all-custom cursor-pointer"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
@@ -116,19 +124,19 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 bg-moon-accent hover:bg-moon-hover text-white font-semibold rounded-xl shadow-lg shadow-moon-accent/25 hover:shadow-moon-hover/30 transition-all-custom flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-md shadow-blue-600/10 hover:shadow-blue-500/25 transition-all-custom flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer uppercase tracking-wider text-xs font-sans"
           >
             {loading ? (
-              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              'Ingresar al Panel'
+              'Ingresar al Servidor'
             )}
           </button>
         </form>
 
         {/* Footer info */}
-        <div className="mt-8 text-center text-xs text-moon-text/30">
-          <p>&copy; {new Date().getFullYear()} MoonPanel. Todos los derechos reservados.</p>
+        <div className="mt-8 text-center text-[10px] text-slate-600 font-mono tracking-wider">
+          <p>&copy; {new Date().getFullYear()} MOONDEV SYSTEM. CORE v1.0.0</p>
         </div>
       </div>
     </div>
