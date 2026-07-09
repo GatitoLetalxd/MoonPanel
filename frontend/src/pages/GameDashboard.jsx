@@ -2443,7 +2443,7 @@ export default function GameDashboard() {
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {[
                     { rule: 'showcoordinates',   label: 'Mostrar Coordenadas',     desc: 'Muestra XYZ en pantalla', dangerous: false },
-                    { rule: 'keepinventory',     label: 'Persistir Inventario',    desc: 'No perder objetos al morir', dangerous: true },
+                    { rule: 'keepinventory',     label: 'Mantener Inventario',    desc: 'No perder objetos al morir', dangerous: true },
                     { rule: 'pvp',               label: 'PvP',                     desc: 'Combate entre jugadores', dangerous: false },
                     { rule: 'dodaylightcycle',   label: 'Ciclo Día/Noche',         desc: 'Activar ciclo solar', dangerous: true },
                     { rule: 'doweathercycle',    label: 'Ciclo de Clima',          desc: 'Lluvia y tormentas', dangerous: true },
