@@ -2710,7 +2710,6 @@ export default function GameDashboard() {
                       { key: 'upcoming_creator_features',    label: 'Upcoming Creator Features',          desc: 'Funciones del creador en prueba' },
                       { key: 'experimental_creator_cameras', label: 'Creator Camera Experimental',       desc: 'Cámara para creadores de contenido' },
                       { key: 'villager_trades_rebalance',    label: 'Reequilibrio de Tratos Aldeanos',    desc: 'Ajuste económico de aldeanos' },
-                      { key: 'holiday_creator_features',    label: 'Holiday Creator Features',           desc: 'Funciones de creador de temporada' },
                       { key: 'data_driven_biomes',           label: 'Custom Biomes',                     desc: 'Biomas personalizados por datos' },
                       { key: 'scripting',                    label: 'Scripting',                         desc: 'API de scripting del servidor' },
                     ].map(({ key, label, desc }) => {
@@ -3001,11 +3000,6 @@ export default function GameDashboard() {
                     key: 'gametest',
                     label: 'GameTest Framework',
                     description: 'Framework de pruebas automatizadas para packs'
-                  },
-                  {
-                    key: 'holiday_creator_features',
-                    label: 'Holiday Creator Features',
-                    description: 'Contenido estacional y features adicionales de creador'
                   },
                   {
                     key: 'data_driven_biomes',
