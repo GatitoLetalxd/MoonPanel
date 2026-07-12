@@ -689,6 +689,18 @@ async function forceLaunchInstance(req, res) {
   }
 }
 
+// POST /api/admin/discord/recreate
+async function recreateDiscordBoards(req, res) {
+  try {
+    const discordBotService = require('../services/discordBotService')
+    await discordBotService.recreateDiscordBoards()
+    return res.status(200).json({ message: 'Tableros de Discord recreados exitosamente.' })
+  } catch (error) {
+    console.error('[ADMIN RECREATE DISCORD BOARDS] Error:', error)
+    return res.status(500).json({ error: error.message || 'Error al recrear tableros de Discord.' })
+  }
+}
+
 module.exports = {
   getClients,
   createClient,
@@ -704,5 +716,6 @@ module.exports = {
   getInstanceSSHInfo,
   deleteSSHKey,
   launchInstanceHelper,
-  forceLaunchInstance
+  forceLaunchInstance,
+  recreateDiscordBoards
 }

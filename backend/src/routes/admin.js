@@ -25,6 +25,7 @@ router.post('/instances/:id/start', adminController.startInstance)
 router.post('/instances/:id/stop', adminController.stopInstance)
 router.post('/instances/:id/restart', adminController.restartInstance)
 router.post('/instances/:id/force-launch', adminController.forceLaunchInstance)
+router.post('/discord/recreate', adminController.recreateDiscordBoards)
 
 // Stats y SSH Info
 router.get('/instances/:id/stats', adminController.getInstanceStats)

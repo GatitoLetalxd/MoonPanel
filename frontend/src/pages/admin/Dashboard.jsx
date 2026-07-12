@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Server, Users, HardDrive, Cpu, Plus, RefreshCw, ExternalLink, Activity } from 'lucide-react'
+import { Server, Users, HardDrive, Cpu, Plus, RefreshCw, ExternalLink, Activity, MessageSquare } from 'lucide-react'
 import StatusBadge from '../../components/StatusBadge'
 import InstanceCard from '../../components/InstanceCard'
 import api from '../../api/axios'
@@ -10,6 +10,25 @@ export default function Dashboard() {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [recreatingDiscord, setRecreatingDiscord] = useState(false)
+  const [discordMessage, setDiscordMessage] = useState('')
+
+  const handleRecreateDiscord = async () => {
+    setRecreatingDiscord(true)
+    setDiscordMessage('')
+    try {
+      const res = await api.post('/api/admin/discord/recreate')
+      setDiscordMessage('🟢 ' + (res.data.message || 'Tableros recreados exitosamente.'))
+      setTimeout(() => setDiscordMessage(''), 4000)
+    } catch (error) {
+      console.error('[DISCORD RECREATE ERROR]:', error)
+      const errMsg = error.response?.data?.error || 'Error al recrear tableros.'
+      setDiscordMessage('❌ ' + errMsg)
+      setTimeout(() => setDiscordMessage(''), 5000)
+    } finally {
+      setRecreatingDiscord(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -124,6 +143,45 @@ export default function Dashboard() {
           <p className="text-[10px] font-bold text-slate-500 font-sans uppercase tracking-widest mb-1">CLIENTES REGISTRADOS</p>
           <h3 className="text-3xl font-bold text-white font-mono">{totalClients}</h3>
           <p className="text-[10px] text-slate-600 mt-2 font-mono">Roles tipo CLIENT</p>
+        </div>
+      </div>
+
+      {/* Discord Integration Section */}
+      <div className="bg-moon-surface/30 border border-moon-border/40 p-5 rounded-xl mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+            <MessageSquare size={20} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider">Integración Discord</h4>
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+              Administra y sincroniza los tableros de estado interactivos en tus canales.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+          {discordMessage && (
+            <span className="text-[10px] font-mono px-3 py-1.5 bg-moon-card/80 border border-moon-border/40 rounded-lg text-slate-300">
+              {discordMessage}
+            </span>
+          )}
+          <button
+            onClick={handleRecreateDiscord}
+            disabled={recreatingDiscord}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:opacity-50 text-white font-bold rounded-lg shadow-md transition-all text-[10px] uppercase tracking-wider font-sans cursor-pointer shrink-0"
+          >
+            {recreatingDiscord ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" />
+                <span>Recreando...</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw size={12} />
+                <span>Recrear Tableros</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 

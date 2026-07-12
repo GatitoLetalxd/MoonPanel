@@ -265,7 +265,6 @@ async function startDiscordBot() {
       }
 
       if (action === 'refresh') {
-        await interaction.deferUpdate()
         await updateStatusBoards()
       }
 
@@ -433,6 +432,46 @@ async function updateStatusBoards(targetInstanceId = null, forcedDescription = n
   }
 }
 
+async function recreateDiscordBoards() {
+  if (!client || !client.readyAt) {
+    throw new Error('El bot de Discord no está iniciado o conectado.')
+  }
+
+  const mcChannelId = process.env.DISCORD_MINECRAFT_CHANNEL_ID
+  const vhChannelId = process.env.DISCORD_VALHEIM_CHANNEL_ID
+
+  const channelIds = [mcChannelId, vhChannelId].filter(Boolean)
+
+  for (const channelId of channelIds) {
+    try {
+      const channel = await client.channels.fetch(channelId)
+      if (!channel || !channel.isTextBased()) continue
+
+      // Fetch last 100 messages to clean up old status boards
+      const messages = await channel.messages.fetch({ limit: 100 })
+      const botMessages = messages.filter(m => 
+        m.author.id === client.user.id && 
+        m.embeds.length > 0 && 
+        m.embeds[0].footer && 
+        m.embeds[0].footer.text && 
+        m.embeds[0].footer.text.includes('MoonPanel Discord Service | ID:')
+      )
+
+      for (const [_, msg] of botMessages) {
+        await msg.delete().catch(err => {
+          console.error(`[DiscordBot] Falló al borrar mensaje de estado: ${err.message}`)
+        })
+      }
+    } catch (err) {
+      console.error(`[DiscordBot] Error recreando tableros en el canal ${channelId}:`, err.message)
+    }
+  }
+
+  // Generate new boards
+  await updateStatusBoards()
+}
+
 module.exports = {
-  startDiscordBot
+  startDiscordBot,
+  recreateDiscordBoards
 }
