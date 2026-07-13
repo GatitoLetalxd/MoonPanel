@@ -39,15 +39,32 @@ async function syncDockerAndDbStatus() {
 
       const container = docker.getContainer(instance.containerId)
       let isRunning = false
+      let skipSync = false
       try {
         const inspect = await container.inspect()
         isRunning = inspect.State.Running
       } catch (err) {
         isRunning = false
+        // Si no es un error 404 (no encontrado) o "no such container", asumimos error de conexión/daemon Docker
+        const errMsg = (err.message || '').toLowerCase()
+        if (err.statusCode !== 404 && !errMsg.includes('no such container') && !errMsg.includes('could not find')) {
+          console.warn(`[StatusSync] Fallo al inspeccionar contenedor ${instance.containerId} (¿Daemon caído?): ${err.message}`)
+          skipSync = true
+        }
       }
+
+      if (skipSync) continue
 
       // Si la BD dice que está activo pero Docker dice que está apagado
       if (!isRunning && ['online', 'starting', 'stopping'].includes(instance.status)) {
+        // Conceder un margen de gracia de 3 minutos para 'starting' y 'stopping'
+        if (instance.status === 'starting' || instance.status === 'stopping') {
+          const secondsSinceUpdate = (Date.now() - new Date(instance.updatedAt).getTime()) / 1000
+          if (secondsSinceUpdate < 180) {
+            continue // Saltamos la sincronización para dar tiempo de iniciar/detener
+          }
+        }
+
         console.log(`[StatusSync] Detectado contenedor ${instance.containerId} apagado, sincronizando BD a offline.`)
         await prisma.gameInstance.update({
           where: { id: instance.id },
