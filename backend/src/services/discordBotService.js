@@ -473,5 +473,6 @@ async function recreateDiscordBoards() {
 
 module.exports = {
   startDiscordBot,
-  recreateDiscordBoards
+  recreateDiscordBoards,
+  updateStatusBoards
 }

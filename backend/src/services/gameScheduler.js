@@ -12,6 +12,8 @@ const trackers = new Map()
 
 function startGameScheduler() {
   console.log('[GameScheduler] Auto-sleep scheduler iniciado.')
+  
+  // Polling de inactividad de jugadores (cada 60s)
   setInterval(async () => {
     try {
       const instances = await prisma.gameInstance.findMany({
@@ -24,6 +26,55 @@ function startGameScheduler() {
       console.error('[GameScheduler] Error en ciclo de polling:', err.message)
     }
   }, POLL_INTERVAL_MS)
+
+  // Polling de sincronización de estado Docker <-> Base de datos (cada 15s)
+  setInterval(syncDockerAndDbStatus, 15_000)
+}
+
+async function syncDockerAndDbStatus() {
+  try {
+    const instances = await prisma.gameInstance.findMany()
+    for (const instance of instances) {
+      if (instance.status === 'pending') continue
+
+      const container = docker.getContainer(instance.containerId)
+      let isRunning = false
+      try {
+        const inspect = await container.inspect()
+        isRunning = inspect.State.Running
+      } catch (err) {
+        isRunning = false
+      }
+
+      // Si la BD dice que está activo pero Docker dice que está apagado
+      if (!isRunning && ['online', 'starting', 'stopping'].includes(instance.status)) {
+        console.log(`[StatusSync] Detectado contenedor ${instance.containerId} apagado, sincronizando BD a offline.`)
+        await prisma.gameInstance.update({
+          where: { id: instance.id },
+          data: { status: 'offline' }
+        })
+        try {
+          const discordBotService = require('./discordBotService.js')
+          await discordBotService.updateStatusBoards(instance.id)
+        } catch (_) {}
+      }
+
+      // Si la BD dice que está apagado pero Docker dice que está encendido
+      if (isRunning && instance.status === 'offline') {
+        console.log(`[StatusSync] Detectado contenedor ${instance.containerId} encendido, sincronizando BD a online.`)
+        await prisma.gameInstance.update({
+          where: { id: instance.id },
+          data: { status: 'online' }
+        })
+        try {
+          const discordBotService = require('./discordBotService.js')
+          await discordBotService.updateStatusBoards(instance.id)
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    console.error('[StatusSync] Error en ciclo de sincronización de estado:', err.message)
+  }
 }
 
 async function checkInstance(instance) {
