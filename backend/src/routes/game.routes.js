@@ -67,6 +67,16 @@ const DEFAULT_GAMERULES = {
   tntexplosiondropdecay: false
 }
 
+async function safeStartContainer(container) {
+  try {
+    await container.start()
+  } catch (err) {
+    if (err.statusCode !== 304 && !err.message.includes('304') && !err.message.includes('already started')) {
+      throw err
+    }
+  }
+}
+
 // Multer: store addon uploads in /tmp
 const addonUpload = multer({
   dest: '/tmp/moonpanel_addons/',
@@ -251,7 +261,7 @@ router.post('/instances/:id/start', authMiddleware, async (req, res) => {
     })
 
     const container = docker.getContainer(instance.containerId)
-    await container.start()
+    await safeStartContainer(container)
     resetGameTracker(instanceId)
 
     // Marcar online tras gracia de arranque (fallback por si falla la lectura de logs)
@@ -411,7 +421,7 @@ router.post('/instances/:id/restart', authMiddleware, async (req, res) => {
       data: { status: 'starting' }
     })
 
-    await container.start()
+    await safeStartContainer(container)
 
     if (access.gameInstance.gameType === 'minecraft') {
       setTimeout(() => {
@@ -785,7 +795,7 @@ router.post('/instances/:id/reset-world', authMiddleware, async (req, res) => {
     }
 
     const container = docker.getContainer(instance.containerId)
-    await container.start()
+    await safeStartContainer(container)
 
     const execObj = await container.exec({
       Cmd: ['rm', '-rf', worldPaths[instance.gameType]],
@@ -1303,7 +1313,7 @@ router.post('/instances/:id/mc/world/upload', authMiddleware, async (req, res) =
 
     if (isOnline) {
       await prisma.gameInstance.update({ where: { id: instanceId }, data: { status: 'starting' } })
-      await container.start()
+      await safeStartContainer(container)
       resetGameTracker(instanceId)
       setTimeout(async () => {
         const current = await prisma.gameInstance.findUnique({ where: { id: instanceId } })
@@ -1378,7 +1388,7 @@ router.post('/instances/:id/mc/world/generate', authMiddleware, async (req, res)
 
     if (isOnline) {
       await prisma.gameInstance.update({ where: { id: instanceId }, data: { status: 'starting' } })
-      await container.start()
+      await safeStartContainer(container)
       resetGameTracker(instanceId)
       setTimeout(async () => {
         const current = await prisma.gameInstance.findUnique({ where: { id: instanceId } })

@@ -85,9 +85,14 @@ router.post('/instances/:id/reset-world', authMiddleware, adminMiddleware, async
       minecraft: '/data/worlds'
     }
 
-    // Arrancar contenedor brevemente para ejecutar rm, luego detener
     const container = docker.getContainer(instance.containerId)
-    await container.start()
+    try {
+      await container.start()
+    } catch (startErr) {
+      if (startErr.statusCode !== 304 && !startErr.message.includes('304') && !startErr.message.includes('already started')) {
+        throw startErr
+      }
+    }
 
     const exec = await container.exec({
       Cmd: ['rm', '-rf', worldPaths[instance.gameType]],
