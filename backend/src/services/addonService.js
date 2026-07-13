@@ -192,8 +192,8 @@ function isPackActiveInWorld(worldPath, packType, uuid) {
 // Verifica si una carpeta pertenece a los packs por defecto (Vanilla/Experimiental) del juego
 function isVanillaPack(folderName) {
   const lower = folderName.toLowerCase()
-  if (lower === 'vanilla' || lower.startsWith('vanilla_')) return true
-  if (lower === 'chemistry' || lower.startsWith('chemistry_')) return true
+  if (lower === 'vanilla' || /^vanilla_\d/.test(lower)) return true
+  if (lower === 'chemistry' || /^chemistry_\d/.test(lower)) return true
   if (lower === 'editor' || lower.includes('editor')) return true
   if (lower.startsWith('@minecraft')) return true
   if (lower.includes('experimental')) return true
