@@ -9,6 +9,29 @@ const util = require('util')
 const execPromise = util.promisify(exec)
 const { getInstanceDataPath } = require('./gameFileService.js')
 
+function readTextFileAutoEncoding(filePath) {
+  const buffer = fs.readFileSync(filePath)
+  let str = ''
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    str = buffer.toString('utf16le')
+  } else if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+    const swapped = Buffer.alloc(buffer.length)
+    for (let i = 0; i < buffer.length - 1; i += 2) {
+      swapped[i] = buffer[i + 1]
+      swapped[i + 1] = buffer[i]
+    }
+    str = swapped.toString('utf16le')
+  } else if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+    str = buffer.slice(3).toString('utf8')
+  } else {
+    str = buffer.toString('utf8')
+  }
+  if (str.charCodeAt(0) === 0xfeff) {
+    str = str.substring(1)
+  }
+  return str
+}
+
 /**
  * Returns the name of the first world folder found in /worlds/
  */
@@ -46,7 +69,7 @@ function resolveFromLang(dirPath, key) {
   for (const langFile of langFiles) {
     if (!fs.existsSync(langFile)) continue
     try {
-      const lines = fs.readFileSync(langFile, 'utf8').split('\n')
+      const lines = readTextFileAutoEncoding(langFile).split('\n')
       for (const line of lines) {
         const trimmed = line.trim()
         if (trimmed.startsWith('#') || !trimmed.includes('=')) continue
@@ -68,7 +91,7 @@ function readManifest(dirPath) {
   const manifestPath = path.join(dirPath, 'manifest.json')
   if (!fs.existsSync(manifestPath)) return null
   try {
-    const raw = fs.readFileSync(manifestPath, 'utf8')
+    const raw = readTextFileAutoEncoding(manifestPath)
     const manifest = JSON.parse(raw)
     const header = manifest.header
     if (!header || !header.uuid) return null
@@ -140,7 +163,7 @@ function readWorldPackJson(worldPath, packType) {
   const filePath = path.join(worldPath, filename)
   if (!fs.existsSync(filePath)) return []
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    return JSON.parse(readTextFileAutoEncoding(filePath))
   } catch (_) {
     return []
   }
