@@ -223,7 +223,7 @@ async function startDiscordBot() {
         // Update board immediately to show transition
         await updateStatusBoards()
 
-        // Graceful stop for Minecraft command
+        // Graceful stop for Minecraft and Valheim
         if (instance.gameType === 'minecraft') {
           try {
             const execObj = await container.exec({
@@ -246,6 +246,21 @@ async function startDiscordBot() {
             }
           } catch (err) {
             console.error('[DiscordBot Stop] Error graceful stop:', err.message)
+            await container.stop().catch(() => {})
+          }
+        } else if (instance.gameType === 'valheim') {
+          try {
+            const execObj = await container.exec({
+              Cmd: ['send-command', 'save'],
+              AttachStdout: false,
+              AttachStderr: false
+            })
+            await execObj.start({ hijack: true, stdin: false }).catch(() => {})
+            // Espera de 3 segundos para guardar el mundo antes de apagar
+            await new Promise(r => setTimeout(r, 3000))
+            await container.stop({ t: 30 }).catch(() => {})
+          } catch (err) {
+            console.error('[DiscordBot Stop] Error graceful save Valheim:', err.message)
             await container.stop().catch(() => {})
           }
         } else {

@@ -128,12 +128,55 @@ async function checkInstance(instance) {
 async function autoStop(instance) {
   try {
     const container = docker.getContainer(instance.containerId)
-    await container.stop()
+
+    if (instance.gameType === 'minecraft') {
+      try {
+        const execObj = await container.exec({
+          Cmd: ['send-command', 'stop'],
+          AttachStdout: false,
+          AttachStderr: false
+        })
+        await execObj.start({ hijack: true, stdin: false })
+        let isStopped = false
+        for (let i = 0; i < 10; i++) {
+          const inspect = await container.inspect()
+          if (!inspect.State.Running) {
+            isStopped = true
+            break
+          }
+          await new Promise(r => setTimeout(r, 500))
+        }
+        if (!isStopped) {
+          await container.stop().catch(() => {})
+        }
+      } catch (err) {
+        console.error(`[GameScheduler AutoStop] Error en cierre limpio de MC:`, err.message)
+        await container.stop().catch(() => {})
+      }
+    } else if (instance.gameType === 'valheim') {
+      try {
+        const execObj = await container.exec({
+          Cmd: ['send-command', 'save'],
+          AttachStdout: false,
+          AttachStderr: false
+        })
+        await execObj.start({ hijack: true, stdin: false }).catch(() => {})
+        // Esperar 3 segundos para que Valheim guarde todo el terreno/mundo a disco
+        await new Promise(r => setTimeout(r, 3000))
+        await container.stop({ t: 30 }).catch(() => {})
+      } catch (err) {
+        console.error(`[GameScheduler AutoStop] Error en guardado limpio de Valheim:`, err.message)
+        await container.stop().catch(() => {})
+      }
+    } else {
+      await container.stop().catch(() => {})
+    }
+
     await prisma.gameInstance.update({
       where: { id: instance.id },
       data: { status: 'offline' }
     })
-    console.log(`[GameScheduler] ${instance.containerName}: detenido correctamente`)
+    console.log(`[GameScheduler] ${instance.containerName}: detenido correctamente con guardado.`)
   } catch (err) {
     console.error(`[GameScheduler] Error al detener ${instance.containerName}:`, err.message)
     // Forzar status offline en DB aunque el stop falle

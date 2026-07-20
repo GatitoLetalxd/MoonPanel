@@ -315,7 +315,7 @@ router.post('/instances/:id/stop', authMiddleware, async (req, res) => {
 
     const container = docker.getContainer(instance.containerId)
     
-    // Si es Minecraft, enviar comando stop primero para un apagado limpio
+    // Cierre y guardado limpio según el juego
     if (instance.gameType === 'minecraft') {
       try {
         const execObj = await container.exec({
@@ -338,6 +338,21 @@ router.post('/instances/:id/stop', authMiddleware, async (req, res) => {
         }
       } catch (err) {
         console.error('[MC Stop] Error graceful stop:', err.message)
+        await container.stop().catch(() => {})
+      }
+    } else if (instance.gameType === 'valheim') {
+      try {
+        const execObj = await container.exec({
+          Cmd: ['send-command', 'save'],
+          AttachStdout: false,
+          AttachStderr: false
+        })
+        await execObj.start({ hijack: true, stdin: false }).catch(() => {})
+        // Espera de 3 segundos para que Valheim guarde el mundo a disco
+        await new Promise(r => setTimeout(r, 3000))
+        await container.stop({ t: 30 }).catch(() => {})
+      } catch (err) {
+        console.error('[Valheim Stop] Error graceful save:', err.message)
         await container.stop().catch(() => {})
       }
     } else {
@@ -380,7 +395,7 @@ router.post('/instances/:id/restart', authMiddleware, async (req, res) => {
 
     const container = docker.getContainer(access.gameInstance.containerId)
     
-    // Si es Minecraft, enviar comando stop primero para un apagado limpio
+    // Cierre y guardado limpio según el juego
     if (access.gameInstance.gameType === 'minecraft') {
       try {
         const execObj = await container.exec({
@@ -403,6 +418,21 @@ router.post('/instances/:id/restart', authMiddleware, async (req, res) => {
         }
       } catch (err) {
         console.error('[MC Restart] Error graceful stop:', err.message)
+        await container.stop().catch(() => {})
+      }
+    } else if (access.gameInstance.gameType === 'valheim') {
+      try {
+        const execObj = await container.exec({
+          Cmd: ['send-command', 'save'],
+          AttachStdout: false,
+          AttachStderr: false
+        })
+        await execObj.start({ hijack: true, stdin: false }).catch(() => {})
+        // Espera de 3 segundos para que Valheim guarde el mundo a disco
+        await new Promise(r => setTimeout(r, 3000))
+        await container.stop({ t: 30 }).catch(() => {})
+      } catch (err) {
+        console.error('[Valheim Restart] Error graceful save:', err.message)
         await container.stop().catch(() => {})
       }
     } else {
