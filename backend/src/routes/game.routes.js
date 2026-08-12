@@ -5,6 +5,7 @@ const prisma = require('../lib/prisma.js')
 const Docker = require('dockerode')
 const docker = new Docker({ socketPath: '/var/run/docker.sock' })
 const { resetGameTracker } = require('../services/gameScheduler.js')
+const discordBotService = require('../services/discordBotService.js')
 const { queryPlayers, queryMinecraftBedrockDetails, queryValheimDetails } = require('../services/playerQueryService.js')
 const { getGameConfig, updateGameConfig, getServiceName } = require('../services/gameConfigService.js')
 const { getStats } = require('../services/dockerService.js')
@@ -264,6 +265,12 @@ router.post('/instances/:id/start', authMiddleware, async (req, res) => {
     await safeStartContainer(container)
     resetGameTracker(instanceId)
 
+    // Sincronizar de inmediato con Discord y arrancar animación de transición
+    discordBotService.updateStatusBoards(instanceId).catch(() => {})
+    if (typeof discordBotService.startTransitionLoop === 'function') {
+      discordBotService.startTransitionLoop(instanceId, instance.gameType)
+    }
+
     // Marcar online tras gracia de arranque (fallback por si falla la lectura de logs)
     setTimeout(async () => {
       const current = await prisma.gameInstance.findUnique({ where: { id: instanceId } })
@@ -312,6 +319,7 @@ router.post('/instances/:id/stop', authMiddleware, async (req, res) => {
       where: { id: instanceId },
       data: { status: 'stopping' }
     })
+    discordBotService.updateStatusBoards(instanceId).catch(() => {})
 
     const container = docker.getContainer(instance.containerId)
     
@@ -363,6 +371,7 @@ router.post('/instances/:id/stop', authMiddleware, async (req, res) => {
       where: { id: instanceId },
       data: { status: 'offline' }
     })
+    discordBotService.updateStatusBoards(instanceId).catch(() => {})
 
     res.json({ message: 'Servidor detenido', status: 'offline' })
   } catch (err) {
@@ -392,6 +401,7 @@ router.post('/instances/:id/restart', authMiddleware, async (req, res) => {
       where: { id: instanceId },
       data: { status: 'stopping' }
     })
+    discordBotService.updateStatusBoards(instanceId).catch(() => {})
 
     const container = docker.getContainer(access.gameInstance.containerId)
     
@@ -452,6 +462,11 @@ router.post('/instances/:id/restart', authMiddleware, async (req, res) => {
     })
 
     await safeStartContainer(container)
+
+    discordBotService.updateStatusBoards(instanceId).catch(() => {})
+    if (typeof discordBotService.startTransitionLoop === 'function') {
+      discordBotService.startTransitionLoop(instanceId, access.gameInstance.gameType)
+    }
 
     if (access.gameInstance.gameType === 'minecraft') {
       setTimeout(() => {

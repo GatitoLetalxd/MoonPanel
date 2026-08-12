@@ -13,6 +13,9 @@ const trackers = new Map()
 function startGameScheduler() {
   console.log('[GameScheduler] Auto-sleep scheduler iniciado.')
   
+  // Escuchar eventos de Docker en tiempo real (<0.1s)
+  listenDockerEvents()
+
   // Polling de inactividad de jugadores (cada 60s)
   setInterval(async () => {
     try {
@@ -27,8 +30,33 @@ function startGameScheduler() {
     }
   }, POLL_INTERVAL_MS)
 
-  // Polling de sincronización de estado Docker <-> Base de datos (cada 15s)
+  // Polling secundario de respaldo de sincronización de estado (cada 15s)
   setInterval(syncDockerAndDbStatus, 15_000)
+}
+
+function listenDockerEvents() {
+  docker.getEvents({ type: 'container' }, (err, stream) => {
+    if (err) {
+      console.error('[DockerEvents] Falló al iniciar stream de eventos:', err.message)
+      return
+    }
+    if (!stream) return
+
+    console.log('[DockerEvents] Escuchando eventos de contenedores Docker en tiempo real.')
+
+    stream.on('data', (chunk) => {
+      try {
+        const event = JSON.parse(chunk.toString('utf8'))
+        if (['start', 'die', 'stop', 'kill', 'destroy'].includes(event.Action)) {
+          syncDockerAndDbStatus().catch(() => {})
+        }
+      } catch (_) {}
+    })
+
+    stream.on('error', (e) => {
+      console.error('[DockerEvents] Stream error:', e.message)
+    })
+  })
 }
 
 async function syncDockerAndDbStatus() {
