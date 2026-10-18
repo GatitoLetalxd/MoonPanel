@@ -946,8 +946,12 @@ router.post('/instances/:id/backups', authMiddleware, async (req, res) => {
     const filename = `backup_${instance.gameType}_${Date.now()}.zip`
     const destPath = path.join(backupsDir, filename)
 
-    // Crear el zip comprimido
-    await execPromise(`zip -r "${destPath}" .`, { cwd: sourceDir })
+    // Crear el zip comprimido (en Valheim excluimos copias viejas _backup_ y .old para un zip ligero y limpio)
+    if (instance.gameType === 'valheim') {
+      await execPromise(`zip -r "${destPath}" . -x "*_backup_*" "*_backup_*/*" "*.old" "*.old/*"`, { cwd: sourceDir })
+    } else {
+      await execPromise(`zip -r "${destPath}" .`, { cwd: sourceDir })
+    }
 
     res.json({ message: 'Respaldo creado con éxito.', filename })
   } catch (err) {
@@ -1054,6 +1058,62 @@ router.get('/instances/:id/backups/:filename/download', authMiddleware, async (r
     }
 
     res.download(backupPath, filename)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── POST /api/game/instances/:id/valheim/clean-drops ─────────────────────────
+router.post('/instances/:id/valheim/clean-drops', authMiddleware, async (req, res) => {
+  try {
+    const instanceId = parseInt(req.params.id)
+    const access = await prisma.userGameAccess.findUnique({
+      where: { userId_gameInstanceId: { userId: req.user.id, gameInstanceId: instanceId } },
+      include: { gameInstance: true }
+    })
+    if (!access) return res.status(403).json({ error: 'Sin acceso' })
+
+    const instance = access.gameInstance
+    if (instance.gameType !== 'valheim') {
+      return res.status(400).json({ error: 'Esta acción solo está disponible para servidores de Valheim' })
+    }
+    // Verificar si el contenedor está encendido en Docker o en BD
+    let isRunning = instance.status === 'online'
+    try {
+      const container = docker.getContainer(instance.containerId || instance.containerName)
+      const cState = await container.inspect()
+      if (cState?.State?.Running) {
+        isRunning = true
+        if (instance.status !== 'online') {
+          await prisma.gameInstance.update({
+            where: { id: instanceId },
+            data: { status: 'online' }
+          }).catch(() => {})
+        }
+      }
+    } catch (_) {}
+
+    if (!isRunning) {
+      return res.status(400).json({ error: 'El servidor de Valheim debe estar encendido para limpiar los items del suelo en caliente' })
+    }
+
+    const dataPath = getInstanceDataPath(instance.containerName) || '/opt/gameservers/valheim/data'
+    const triggerPath = path.join(dataPath, 'bepinex/cleanup_drops')
+    const legacyTriggerPath = path.join(dataPath, 'bepinex/config/cleanup_drops')
+
+    // Disparo manual instantáneo vía MoonPanelPlugin (un solo archivo trigger)
+    try {
+      try { if (fs.existsSync(legacyTriggerPath)) fs.unlinkSync(legacyTriggerPath) } catch (_) {}
+      fs.writeFileSync(triggerPath, '1', 'utf8')
+    } catch (err) {
+      console.warn('[Valheim clean-drops] Advertencia trigger directo:', err.message)
+      return res.status(500).json({ error: 'No se pudo comunicar con el servidor para la limpieza: ' + err.message })
+    }
+
+    res.json({
+      success: true,
+      message: 'Limpieza de suelo ejecutada. Los items del suelo han sido eliminados de inmediato.'
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

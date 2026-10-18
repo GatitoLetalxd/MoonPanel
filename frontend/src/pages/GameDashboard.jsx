@@ -171,6 +171,7 @@ export default function GameDashboard() {
 
   // Loaders específicos
   const [actionLoading, setActionLoading] = useState(false)
+  const [cleanDropsLoading, setCleanDropsLoading] = useState(false)
   const [configLoading, setConfigLoading] = useState(false)
   const [configSaving, setConfigSaving] = useState(false)
   const [backupsLoading, setBackupsLoading] = useState(false)
@@ -814,6 +815,35 @@ export default function GameDashboard() {
     }
   }
 
+  // Limpiar items sueltos del suelo en Valheim (removedrops)
+  function handleCleanDrops() {
+    if (!activeInstance || activeInstance.gameType !== 'valheim') return
+    if (activeInstance.status !== 'online') {
+      showToast('El servidor de Valheim debe estar encendido para limpiar los items del suelo.', 'warning')
+      return
+    }
+
+    triggerConfirm(
+      '¿Limpiar items tirados en el suelo?',
+      'Esta acción eliminará todos los objetos sueltos (madera, piedra, resina, trofeos de monstruos) tirados en el mapa para reducir el lag y optimizar el rendimiento. Los cofres, barcos, carretas, construcciones e inventarios NO se verán afectados.',
+      () => executeCleanDrops(),
+      false
+    )
+  }
+
+  async function executeCleanDrops() {
+    if (!activeInstance) return
+    setCleanDropsLoading(true)
+    try {
+      const { data } = await axios.post(`/api/game/instances/${activeInstance.id}/valheim/clean-drops`)
+      showToast(data.message || 'Limpieza de items del suelo ejecutada exitosamente.')
+    } catch (err) {
+      showToast(err?.response?.data?.error ?? 'Error al ejecutar la limpieza de suelo.', 'error')
+    } finally {
+      setCleanDropsLoading(false)
+    }
+  }
+
   // Guardar configuración (Valheim)
   async function handleSaveConfig(e) {
     e.preventDefault()
@@ -1224,6 +1254,18 @@ export default function GameDashboard() {
                     <RotateCcw size={14} />
                     <span>Reiniciar</span>
                   </button>
+
+                  {activeInstance.gameType === 'valheim' && (
+                    <button
+                      onClick={handleCleanDrops}
+                      disabled={busy || cleanDropsLoading}
+                      className="px-5 py-3 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg font-bold transition-all flex items-center gap-2 text-xs uppercase tracking-wider shadow-md shadow-purple-600/20 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                      title="Eliminar items tirados en el suelo para reducir lag (no toca cofres ni construcciones)"
+                    >
+                      <Sparkles size={14} className={cleanDropsLoading ? "animate-spin" : ""} />
+                      <span>{cleanDropsLoading ? "Limpiando..." : "Limpiar Suelo"}</span>
+                    </button>
+                  )}
                 </>
               )}
 
@@ -1453,7 +1495,8 @@ export default function GameDashboard() {
               <span>Cargando configuraciones...</span>
             </div>
           ) : activeInstance.gameType === 'valheim' ? (
-            <form onSubmit={handleSaveConfig} className="space-y-6">
+            <div className="space-y-8 animate-fadeIn">
+              <form onSubmit={handleSaveConfig} className="space-y-6">
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-moon-text/70 uppercase tracking-wider font-mono">Nombre del Servidor</label>
                 <input
@@ -1735,6 +1778,37 @@ export default function GameDashboard() {
                 </div>
               )}
             </form>
+
+            {/* Mantenimiento y Rendimiento (Valheim Drops Cleanup) */}
+            <div className="bg-purple-950/20 border border-purple-500/30 rounded-xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Sparkles size={16} className="text-purple-400" />
+                    <span>Limpieza y Optimización de Entidades (Suelo)</span>
+                  </h4>
+                  <p className="text-xs text-moon-text/70 leading-relaxed max-w-2xl">
+                    Elimina todos los objetos tirados en el mapa (madera, piedra, resina, trofeos de enemigos) para reducir el lag, disminuir el uso de RAM y optimizar los guardados del servidor. No afecta cofres, barcos, carretas, construcciones ni inventarios de jugadores.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCleanDrops}
+                  disabled={activeInstance.status !== 'online' || cleanDropsLoading}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-all shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shrink-0"
+                >
+                  <Sparkles size={14} className={cleanDropsLoading ? "animate-spin" : ""} />
+                  <span>{cleanDropsLoading ? "Limpiando..." : "Limpiar Suelo Ahora"}</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-purple-300/80 bg-purple-950/40 p-2.5 rounded-lg border border-purple-500/20 font-mono">
+                <Info size={14} className="shrink-0 text-purple-400" />
+                <span>
+                  <strong>Nota:</strong> Requiere que el servidor esté <strong>Online</strong>. Las tareas automáticas están deshabilitadas por completo; la limpieza de items tirados en el suelo es 100% manual y solo se ejecuta bajo demanda al pulsar este botón (se aplica en el próximo ciclo del servidor en &lt;60s).
+                </span>
+              </div>
+            </div>
+          </div>
           ) : (
             // Contenedor de formularios de Minecraft (Versión + Propiedades)
             <div className="space-y-8 animate-fadeIn">
