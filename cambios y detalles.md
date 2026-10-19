@@ -321,4 +321,13 @@ Si deseas probar cambios localmente:
 * **Cálculo Dinámico de Almacenamiento:**
   - Soporte para detección automática de rutas persistentes en `/opt/gameservers/{valheim|mc1|mc2}/data`, mostrando con exactitud el almacenamiento ocupado en disco en lugar de reportar 0 MB.
 
+### Persistencia de Binarios y Caché de Steam para Valheim (`/opt/valheim`)
+* **Bind Mount en Docker Compose:**
+  - Se configuró el volumen `- /opt/gameservers/valheim/server:/opt/valheim` en `/opt/gameservers/docker-compose.yml`.
+  - Se migraron los 6.57 GB existentes de binarios del servidor de Valheim, archivos descargados de SteamCMD (`dl/server`) y dependencias de BepInEx directamente a la carpeta persistente del host.
+* **Eliminación del Tráfico Redundante y Recreación Ultrarrápida:**
+  - Anteriormente, al guardar cualquier cambio en el panel web de Valheim, `--force-recreate` destruía la capa de escritura del contenedor y obligaba a descargar ~2.5 GB desde Steam en cada reinicio.
+  - Ahora SteamCMD detecta la instalación local en 10 segundos, no re-descarga ningún archivo, y el tiempo de recreación y arranque del contenedor bajó de varios minutos a solo **1.3 segundos**, reduciendo a cero el consumo de ancho de banda innecesario en el VPS.
+
+
 

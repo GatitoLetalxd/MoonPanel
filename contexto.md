@@ -23,7 +23,8 @@ La filosofía principal del proyecto es la **máxima eficiencia de recursos**: p
 * `/root/Proyectos/MoonPanel/MoonPanel/`: Código fuente del monorepo (backend y frontend).
 * `/var/www/moonpanel/`: Archivos estáticos del frontend en producción (compilación Vite / React).
 * `/opt/gameservers/`: Configuración y volúmenes de los servidores de juego administrados por Docker Compose.
-  * `/opt/gameservers/valheim/data/`: Datos del mundo, saves y plugins BepInEx de Valheim.
+  * `/opt/gameservers/valheim/data/`: Datos del mundo, saves y plugins BepInEx de Valheim (montado en `/config`).
+  * `/opt/gameservers/valheim/server/`: Archivos del motor del servidor y caché descargada de SteamCMD (montado en `/opt/valheim`).
   * `/opt/gameservers/mc1/data/`: Datos y mundos del servidor 1 de Minecraft Bedrock.
   * `/opt/gameservers/mc2/data/`: Datos y mundos del servidor 2 de Minecraft Bedrock.
   * `/opt/gameservers/docker-compose.yml`: Definición de los contenedores de juegos.

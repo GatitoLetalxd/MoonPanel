@@ -20,6 +20,7 @@ Documento central de seguimiento para los requerimientos funcionales, arquitect�
 | **Plugin BepInEx de Limpieza de Suelo** | Juegos / Valheim | ✅ Implementado | v1.5 |
 | **Normalización de CPU & RAM Docker Stats** | Monitoreo / Core | ✅ Implementado | v1.6 |
 | **Storage Dinámico para Servidores de Juego** | Monitoreo / Core | ✅ Implementado | v1.6 |
+| **Persistencia /opt/valheim (Caché Steam)** | Juegos / Valheim | ✅ Implementado | v1.7 |
 | **Sistema de Whitelist de Items en Limpieza** | Juegos / Valheim | ⏳ Pendiente | Backlog |
 | **Backups Automatizados con Rotación** | Juegos / Backups | ⏳ Pendiente | Backlog |
 | **Historial Gráfico de Telemetría (24h / 7d)** | Monitoreo / DB | ⏳ Pendiente | Backlog |
@@ -58,6 +59,9 @@ Documento central de seguimiento para los requerimientos funcionales, arquitect�
   - Discriminación precisa entre items arrojados (`ItemDrop`) y flora/arbustos silvestres cosechables (`Pickable` como Bayacardas o Dientes de León), garantizando que las plantas naturales del mundo nunca sean eliminadas.
   - Eliminación de triggers duplicados y supresión de notificaciones cuando se eliminan 0 items para evitar spam confuso en el chat del juego.
   - Anuncio global en el chat del juego notificando a los jugadores la cantidad exacta de items limpiados.
+* **Persistencia de Binarios y Caché (`/opt/valheim` Bind Mount):**
+  - Mapeo persistente de `/opt/gameservers/valheim/server` hacia `/opt/valheim`.
+  - Evita la re-descarga de ~2.5 GB en cada guardado de configuración o `--force-recreate`, reduciendo el tiempo de recreación del contenedor a ~1.3 segundos y eliminando el consumo innecesario de tráfico en el VPS.
 
 ### 1.4 Servidores de Juegos: Minecraft Bedrock
 * **Estabilidad del Mundo (`level.dat` NBT Repair):**

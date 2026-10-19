@@ -210,7 +210,9 @@ sudo certbot --nginx -d panel.moondev.online --non-interactive --agree-tos -m ad
 ## 🕹️ Servidores de Juego y Directorios Persistentes
 
 Los servidores de videojuegos se gestionan a través de `/opt/gameservers/docker-compose.yml`:
-* **Valheim:** Montado en `/opt/gameservers/valheim/data:/config`. Los plugins de BepInEx residen en `/opt/gameservers/valheim/data/bepinex/plugins/`.
+* **Valheim:** 
+  * `/opt/gameservers/valheim/data:/config` (mundos, configuraciones, saves y plugins propios en `bepinex/plugins/`).
+  * `/opt/gameservers/valheim/server:/opt/valheim` (binarios del motor de Valheim y caché de SteamCMD persistente).
 * **Minecraft Bedrock 1:** Montado en `/opt/gameservers/mc1/data:/data`.
 * **Minecraft Bedrock 2:** Montado en `/opt/gameservers/mc2/data:/data`.
 
