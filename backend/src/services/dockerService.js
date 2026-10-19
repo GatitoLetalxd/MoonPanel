@@ -199,10 +199,22 @@ async function updateContainerLimits(containerName, { ramLimit, cpuLimit }) {
 // Obtener stats en tiempo real
 async function getStats(containerName) {
   let diskUsed = 0
-  const hostDir = `/home/clients/${containerName}`
-  if (fs.existsSync(hostDir)) {
+  let targetDir = `/home/clients/${containerName}`
+  if (!fs.existsSync(targetDir)) {
+    if (containerName.includes('valheim') && fs.existsSync('/opt/gameservers/valheim/data')) {
+      targetDir = '/opt/gameservers/valheim/data'
+    } else if (containerName.includes('mc-1') && fs.existsSync('/opt/gameservers/mc1/data')) {
+      targetDir = '/opt/gameservers/mc1/data'
+    } else if (containerName.includes('mc-2') && fs.existsSync('/opt/gameservers/mc2/data')) {
+      targetDir = '/opt/gameservers/mc2/data'
+    } else {
+      targetDir = null
+    }
+  }
+
+  if (targetDir && fs.existsSync(targetDir)) {
     try {
-      const stdout = execSync(`du -sm "${hostDir}"`).toString()
+      const stdout = execSync(`du -sm "${targetDir}"`).toString()
       diskUsed = parseInt(stdout.split('\t')[0]) || 0
     } catch (err) {
       console.error(`[DOCKER] Error al calcular espacio en disco de ${containerName}:`, err.message)
@@ -213,21 +225,30 @@ async function getStats(containerName) {
     const container = docker.getContainer(containerName)
     const stats = await container.stats({ stream: false })
     
-    // Calcular CPU %
+    // Calcular CPU % (estándar Docker stats: escala normalizada por número de cores)
     let cpuPercent = 0.0
     if (stats.cpu_stats && stats.precpu_stats) {
       const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage
       const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage
+      const cpus = stats.cpu_stats.online_cpus || (stats.cpu_stats.cpu_usage?.percpu_usage ? stats.cpu_stats.cpu_usage.percpu_usage.length : 1)
       if (systemDelta > 0 && cpuDelta > 0) {
-        cpuPercent = (cpuDelta / systemDelta) * 100
+        cpuPercent = (cpuDelta / systemDelta) * cpus * 100
       }
     }
 
-    // Calcular RAM
+    // Calcular RAM (descontando caché de archivos inactivos según estándar docker stats)
     let ramUsed = 0
     let ramLimit = 0
     if (stats.memory_stats) {
-      ramUsed = stats.memory_stats.usage || 0
+      let cache = 0
+      if (stats.memory_stats.stats) {
+        if (stats.memory_stats.stats.inactive_file !== undefined) {
+          cache = stats.memory_stats.stats.inactive_file
+        } else if (stats.memory_stats.stats.total_inactive_file !== undefined) {
+          cache = stats.memory_stats.stats.total_inactive_file
+        }
+      }
+      ramUsed = Math.max(0, (stats.memory_stats.usage || 0) - cache)
       ramLimit = stats.memory_stats.limit || 0
     }
 
