@@ -301,3 +301,24 @@ Si deseas probar cambios localmente:
   - Ahora el backend calcula y sobreescribe de forma correcta el campo de tamaño del payload NBT (bytes 4-7 del header) cada vez que modifica opciones o activa experimentos del mundo. Esto previene de forma definitiva el crash fatal del servidor de Minecraft Bedrock al conectar los jugadores.
 * **Experimentos integrados:** Se agregaron toggles visuales de experimentos integrados y sincronizados directamente al final de la sección de Add-ons para una administración más centralizada.
 
+### Plugin Nativo de Limpieza de Suelo para Valheim (`MoonPanelPlugin.cs`)
+* **Desarrollo en C# / BepInEx:**
+  - Creación de un plugin nativo compilado en `.NET Standard 2.0` para Valheim (`plugins/valheim/MoonPanelPlugin.cs`).
+  - Implementación de un puente de comunicación seguro por sistema de archivos mediante `/config/moonpanel_cmd.txt` con validación de marcas de tiempo de modificación para evitar re-ejecuciones accidentales.
+* **Limpieza de Items Tirados en Memoria (`cleardrops`):**
+  - Registro y detección dinámica de más de 1,000 prefabs registrados en el `ObjectDB.instance.m_items` del servidor.
+  - Recorrido seguro de los más de 600,000 objetos en memoria gestionados por `ZDOMan`.
+  - **Protección de Flora Silvestre:** Discriminación estricta entre items dropeados en el suelo (`ItemDrop`) y plantas/arbustos silvestres del mapa (`Pickable` como Bayacardas / Pukeberries o Dientes de León), garantizando que las bayas y plantas naturales no sean destruidas.
+  - Supresión de ejecuciones dobles y silenciamiento de notificaciones en el juego cuando se eliminan 0 items para evitar spam innecesario.
+  - Emisión de un mensaje global en el chat del juego hacia todos los jugadores conectados con el conteo de items recolectados.
+
+### Normalización de Métricas de Recursos (CPU, RAM y Almacenamiento)
+* **Sincronización de CPU con el estándar `docker stats`:**
+  - Corrección de la fórmula en `backend/src/services/dockerService.js`: ahora se multiplica `(cpuDelta / systemDelta)` por la cantidad de CPUs disponibles (`online_cpus = 4`).
+  - Esto resolvió el problema por el cual el panel reportaba un 5% de uso cuando el contenedor estaba utilizando en realidad un 20% – 25% de un núcleo en un servidor VPS de 4 núcleos.
+* **Depuración de Memoria RAM Activa:**
+  - Se descontó la memoria caché inactiva de archivos (`inactive_file`), reflejando únicamente la memoria real en uso (RSS) del juego (~1,780 MB) en lugar del consumo total bruto inflado por el Page Cache de Linux (~3,746 MB).
+* **Cálculo Dinámico de Almacenamiento:**
+  - Soporte para detección automática de rutas persistentes en `/opt/gameservers/{valheim|mc1|mc2}/data`, mostrando con exactitud el almacenamiento ocupado en disco en lugar de reportar 0 MB.
+
+
